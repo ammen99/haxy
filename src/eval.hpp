@@ -13,6 +13,8 @@ extern "C" {
 
 #define ast(x) (mpc_ast_t*)(x)
 
+std::string load_file(std::string name);
+
 using AstNode = mpc_ast_t*;
 
 class Evaluator {
@@ -22,8 +24,11 @@ class Evaluator {
         std::unordered_map<std::string, Func> funcs;
 
         std::string name;
-        Scope *parent_scope;
-    } *current_scope;
+        Scope *parent_scope = nullptr;
+    } *current_scope = nullptr;
+
+    mpc_parser_t *parser;
+    std::vector<mpc_ast_t*> loaded_asts;
 
     void  new_var(std::string name, Value val);
     void  set_var(std::string name, Value val);
@@ -40,7 +45,14 @@ class Evaluator {
     Value eval_bool(std::string str);
 
     List  eval_list(AstNode node);
+
+    /* evaluate args(normal) */
     Args  eval_args(AstNode node);
+    /* evaluate args by identifiers(do not lookup for variables),
+     * see implementation for explanation */
+    Args  eval_args_identifiers(AstNode node);
+
+
     Value call_func(AstNode code, Args args);
     Value eval_func(AstNode node);
     Value eval_comp(AstNode node);
@@ -60,7 +72,10 @@ class Evaluator {
     void add_builtin_functions();
     void create_new_scope(std::string name);
 
-    void eval_file(AstNode node);
+    void init(mpc_parser_t *parser);
+    void cleanup();
+
+    void eval_file(std::string name);
     Value eval(AstNode node);
     bool check_args(Args a);
 };

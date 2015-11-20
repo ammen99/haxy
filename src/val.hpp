@@ -79,6 +79,8 @@ struct Func {
     size_t max_arg;
 
     std::function<Value(Args)> call;
+
+    bool eval_args_by_identifier;
 };
 
 bool is_computable(char *str);

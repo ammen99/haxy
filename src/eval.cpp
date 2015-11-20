@@ -1,5 +1,12 @@
 #include "eval.hpp"
 
+void Evaluator::init(mpc_parser_t *p) {
+    this->parser = p;
+
+    create_new_scope("__global__");
+    add_builtin_functions();
+}
+
 /* definitions for Scope */
 
 void Evaluator::create_new_scope(std::string name) {
@@ -19,7 +26,9 @@ void Evaluator::pop_scope() {
 }
 
 void Evaluator::new_var(std::string name, Value val) {
+    std::cout << "new var " << name << " " << val << std::endl;
     current_scope->vars[name] = val;
+    std::cout << "gut" << std::endl;
 }
 
 void Evaluator::set_var(std::string name, Value val) {
@@ -28,11 +37,14 @@ void Evaluator::set_var(std::string name, Value val) {
     auto search_scope = current_scope;
 
     while(!is_set && search_scope) {
+        std::cout << "searching for " << name << " in " << search_scope->name<< std::endl;
+        std::cout << search_scope << std::endl; 
         auto it = search_scope->vars.find(name);
+        std::cout << "hello" << std::endl;
         if(it == search_scope->vars.end())
             search_scope = search_scope->parent_scope;
         else
-            it->second = val, is_set = true;
+            std::cout << "found" << std::endl, it->second = val, is_set = true;
     }
 }
 
@@ -66,12 +78,21 @@ void Evaluator::new_func(std::string name, Func f) {
 Value Evaluator::call_func(AstNode node, Args a) {
     create_new_scope(node->children[0]->contents + std::string("_call"));
 
+    std::cout << "Call_func " << a.size() << std::endl;
+
+    std::cout << node->children[1]->tag << std::endl;
     auto args = node->children[1]->children[2];    
+    std::cout << "found node " << args->tag << std::endl;
+
     for(int i = 0; i < args->children_num && i < a.size() * 2; i += 2) {
+        std::cout << "create var" << std::endl;;
         new_var(args->children[i]->contents, a[i / 2]); 
+        std::cout << "created var" << std::endl;
     }
 
+    std::cout << "eval block" << std::endl;
     eval_block(node->children[2]);
+
     pop_scope();
 
     return new_error(NoValue);
@@ -108,7 +129,7 @@ void Evaluator::add_builtin_functions() {
             s.long_val += x.long_val; 
 
         return s;
-    }});
+    }, false});
 
     new_func("product", {2, MAXINT, [=] (Args a) {
         Value s = new_value(1);
@@ -119,7 +140,7 @@ void Evaluator::add_builtin_functions() {
             s.long_val *= x.long_val;
 
         return s;
-    }});
+    }, false});
 
     new_func("sum_range", {2, 2, [=] (Args a) {
         if(!check_args(a)) return new_error(BadValue);
@@ -128,7 +149,7 @@ void Evaluator::add_builtin_functions() {
         int end = a[1].long_val;
 
         return new_value(end * (end + 1) / 2 - (start - 1) * (start) / 2);
-    }});
+    }, false});
 
     new_func("product_range", {2, 2, [=] (Args a) {
         Value v = new_value(1); 
@@ -143,14 +164,46 @@ void Evaluator::add_builtin_functions() {
         }
 
         return v;
-    }});
+    }, false});
 
     new_func("print", {0, MAXINT, [=] (Args a) {
         for(int i = 0; i < a.size(); i++)
             std::cout << a[i] << "| ";
         std::cout << std::endl;
         return new_error(NoValue); 
-    }});
+    }, false});
+
+    new_func("read", {1, MAXINT, [=] (Args a) {
+        for(int i = 0; i < a.size(); i++) {
+            switch(a[i].type) {
+                case ValueTypeBool:
+                case ValueTypeNumber:
+                    std::cin >> a[i].long_val;
+                    break;
+                case ValueTypeDbl:
+                    std::cin >> a[i].dbl;
+                    break;
+                case ValueTypeList:
+                    return new_error(BadOp);
+                    break;
+                case ValueTypeString:
+                    std::getline(std::cin, a[i].str);
+                    break;
+                case ValueTypeError:
+                    break;
+            }     
+        }
+        return new_error(NoValue);        
+    }, true});
+
+    new_func("import", {1, 1, [=] (Args a) {
+
+        if(a[0].type != ValueTypeString)
+            return new_error(BadValue);
+
+        eval_file(a[0].str + ".hx");
+        return new_error(NoValue); 
+    }, true});
 }
 
 /* different functions for evaluating */
@@ -220,6 +273,22 @@ Args Evaluator::eval_args(AstNode node) {
     return args;
 }
 
+Args Evaluator::eval_args_identifiers(AstNode node) {
+    Args args;
+
+    if(std::strstr(node->tag, "noarg"))
+        return Args{};
+
+    if(!std::strstr(node->tag, "args") || node->children_num == 0)
+        return Args{new_value(String(node->contents))};
+
+
+    for(int i = 0; i < node->children_num; i += 2)
+        args.push_back(new_value(String(node->children[i]->contents)));
+
+    return args;
+}
+
 bool Evaluator::check_args(Args a) {
     for(auto arg : a)
         if(arg.type == ValueTypeError) return false;
@@ -246,16 +315,16 @@ Value Evaluator::eval_bool(std::string str) {
 
 Value Evaluator::eval_func(AstNode node) {
     std::string name = node->children[0]->contents;
-
-    std::cout << "Eval func " << name << std::endl;
-
-    auto args = eval_args(node->children[2]);
-
-    for(auto x : args)
-        std::cout << "Arg " << x << std::endl;
-
     auto fn = get_func(name);
-    std::cout << "Execute func  with args.size() = " << args.size() << std::endl;
+
+    Args args;
+
+    if(fn.eval_args_by_identifier)
+        args = eval_args_identifiers(node->children[2]);
+    else
+        args = eval_args(node->children[2]);
+
+    std::cout << "Execute func " << name << " with args.size() = " << args.size() << std::endl;
 
     if(fn.min_arg <= args.size() && args.size() <= fn.max_arg)
         return fn.call(args);
@@ -339,11 +408,22 @@ Value Evaluator::eval(AstNode node) {
     }
 
     else if(std::strstr(node->tag, "var")) {
-        std::string name = node->children[1]->children[0]->contents;
-        Value val = eval(node->children[1]->children[2]);
-        new_var(name, val);
-        return val;
+        if(node->children_num == 2) { // initialize variable
+            std::string name = node->children[1]->children[0]->contents;
+            Value val = eval(node->children[1]->children[2]);
+            new_var(name, val);
+
+            return val;
+        }
+        
+        else {
+            std::string name = node->children[2]->contents;
+            new_var(name, new_error(NoValue));
+            return new_error(NoValue);
+        }
+
     }
+
     else if(std::strstr(node->tag, "assign")) {
         std::string name = node->children[0]->contents;
         Value val = eval(node->children[2]);
@@ -426,7 +506,24 @@ void Evaluator::eval_block(AstNode node) {
         std::cout << "Eval block " << eval(node->children[i]) << std::endl;
 }
 
-void Evaluator::eval_file(AstNode node) {
-    eval_block(node);
+void Evaluator::eval_file(std::string name) {
+    std::string src = load_file(name);
+
+    mpc_result_t res;
+
+    if(mpc_parse("input", src.c_str(), parser, &res)) {
+        mpc_ast_print(ast(res.output)); 
+        eval_block(ast(res.output));
+        loaded_asts.push_back(ast(res.output));
+    }
+    else {
+        mpc_err_print(res.error),
+        mpc_err_delete(res.error);
+    }
+}
+
+void Evaluator::cleanup() {
+    for(auto x : loaded_asts)
+        mpc_ast_delete(x);
 }
 /* end eval_xxx */

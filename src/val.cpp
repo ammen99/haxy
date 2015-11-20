@@ -74,10 +74,10 @@ Value Value::operator=(const Value &other) {
                 dbl = other.dbl;
                 break;
             case ValueTypeList:
-                lst = other.lst;
+                new(&lst) List(other.lst);
                 break;
             case ValueTypeString:
-                str = other.str;
+                new(&str) String(other.str);
                 break;
             case ValueTypeError:
                 error = other.error;
@@ -99,10 +99,10 @@ Value Value::operator=(const Value &&other) {
                 dbl = other.dbl;
                 break;
             case ValueTypeList:
-                lst = std::move(other.lst);
+                new(&lst) List(std::move(other.lst));
                 break;
             case ValueTypeString:
-                str = std::move(other.str);
+                new(&str) String(std::move(other.str));
                 break;
             case ValueTypeError:
                 error = other.error;
@@ -368,6 +368,7 @@ Value operator || (const Value &a, const Value &b) {
 // TODO: implement comparison for lists and strings 
 /* comparison operator */
 Value operator == (const Value &a, const Value &b) {
+    std::cout << "Operator == " << std::endl;
     compare_op_guard(a, b, ==)
     else return new_error(BadOp);
 }

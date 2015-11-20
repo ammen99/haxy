@@ -24,10 +24,6 @@ std::string load_file(std::string path) {
 
 int main(int argc, char *argv[]) {
 
-    Evaluator eval;
-    eval.create_new_scope("__global__");
-    eval.add_builtin_functions();
-
     mpc_parser_t* num  = mpc_new("number");
     mpc_parser_t* dbl  = mpc_new("dbl");
     mpc_parser_t* bl   = mpc_new("bool");
@@ -63,7 +59,9 @@ int main(int argc, char *argv[]) {
             arg, args, noarg, func,
             expr, st, fd, var, lst, top, dbl, cmd);
 
-    //mpca_lang(MPCA_LANG_DEFAULT, lex.c_str());
+    Evaluator eval;
+    eval.init(cmd);
+
     if(argc < 2) { /* run interactive mode */
         try {
 
@@ -74,7 +72,6 @@ int main(int argc, char *argv[]) {
                 mpc_result_t res;
                 if(mpc_parse("input", input.c_str(), cmd, &res)) {
                     mpc_ast_print(ast(res.output)); 
-                    //eval.eval(ast(res.output));
                     std::cout << eval.eval(ast(res.output)) << std::endl;
                     mpc_ast_delete(ast(res.output));
                 }
@@ -89,20 +86,10 @@ int main(int argc, char *argv[]) {
         }    
     }
 
-    else {
-        std::string s = load_file(argv[1]);
-        mpc_result_t res;
+    else
+        eval.eval_file(argv[1]);
 
-        if(mpc_parse("input", s.c_str(), cmd, &res)) {
-            mpc_ast_print(ast(res.output)); 
-            eval.eval_file(ast(res.output));
-            mpc_ast_delete(ast(res.output));
-        }
-        else
-            mpc_err_print(res.error),
-            mpc_err_delete(res.error);
-    }
-
+    eval.cleanup();
     mpc_cleanup(9, elsee, elif, noarg, cond, num, str, wh, op, id, assi, felif, arg, args, bl, func, norm, body,
             comp, gcomp, expr, var, lst, st, dbl, fd, iff, top, cmd);
     return 0;
