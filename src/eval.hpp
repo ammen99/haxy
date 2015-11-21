@@ -27,7 +27,8 @@ class Evaluator {
         Scope *parent_scope = nullptr;
     } *current_scope = nullptr;
 
-    mpc_parser_t *parser;
+    mpc_parser_t *parser, *expr_parser;
+
     std::vector<mpc_ast_t*> loaded_asts;
 
     void  new_var(std::string name, Value val);
@@ -63,8 +64,6 @@ class Evaluator {
     void eval_block(AstNode node);
 
     bool eval_if(AstNode node);
-    bool eval_elif(AstNode node);
-    void eval_else(AstNode node);
 
     void eval_while(AstNode node);
 
@@ -72,7 +71,7 @@ class Evaluator {
     void add_builtin_functions();
     void create_new_scope(std::string name);
 
-    void init(mpc_parser_t *parser);
+    void init(mpc_parser_t *parser, mpc_parser_t *expr_parser);
     void cleanup();
 
     void eval_file(std::string name);

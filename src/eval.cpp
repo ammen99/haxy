@@ -1,7 +1,8 @@
 #include "eval.hpp"
 
-void Evaluator::init(mpc_parser_t *p) {
+void Evaluator::init(mpc_parser_t *p, mpc_parser_t *e) {
     this->parser = p;
+    this->expr_parser = e;
 
     create_new_scope("__global__");
     add_builtin_functions();
@@ -26,25 +27,19 @@ void Evaluator::pop_scope() {
 }
 
 void Evaluator::new_var(std::string name, Value val) {
-    std::cout << "new var " << name << " " << val << std::endl;
     current_scope->vars[name] = val;
-    std::cout << "gut" << std::endl;
 }
 
 void Evaluator::set_var(std::string name, Value val) {
     bool is_set = false;
-
     auto search_scope = current_scope;
 
     while(!is_set && search_scope) {
-        std::cout << "searching for " << name << " in " << search_scope->name<< std::endl;
-        std::cout << search_scope << std::endl; 
         auto it = search_scope->vars.find(name);
-        std::cout << "hello" << std::endl;
         if(it == search_scope->vars.end())
             search_scope = search_scope->parent_scope;
         else
-            std::cout << "found" << std::endl, it->second = val, is_set = true;
+            it->second = val, is_set = true;
     }
 }
 
@@ -65,7 +60,6 @@ Value Evaluator::get_var(std::string name) {
 
 
 void Evaluator::new_func(std::string name, AstNode node) {
-    std::cout << "Creating a new function with name = " << name << std::endl;
     current_scope->funcs[name] = Func{0, MAXINT, [=] (Args a) {
         return call_func(node, a);
     }};
@@ -77,22 +71,12 @@ void Evaluator::new_func(std::string name, Func f) {
 
 Value Evaluator::call_func(AstNode node, Args a) {
     create_new_scope(node->children[0]->contents + std::string("_call"));
-
-    std::cout << "Call_func " << a.size() << std::endl;
-
-    std::cout << node->children[1]->tag << std::endl;
     auto args = node->children[1]->children[2];    
-    std::cout << "found node " << args->tag << std::endl;
 
-    for(int i = 0; i < args->children_num && i < a.size() * 2; i += 2) {
-        std::cout << "create var" << std::endl;;
+    for(int i = 0; i < args->children_num && i < a.size() * 2; i += 2)
         new_var(args->children[i]->contents, a[i / 2]); 
-        std::cout << "created var" << std::endl;
-    }
 
-    std::cout << "eval block" << std::endl;
     eval_block(node->children[2]);
-
     pop_scope();
 
     return new_error(NoValue);
@@ -175,23 +159,27 @@ void Evaluator::add_builtin_functions() {
 
     new_func("read", {1, MAXINT, [=] (Args a) {
         for(int i = 0; i < a.size(); i++) {
-            switch(a[i].type) {
-                case ValueTypeBool:
-                case ValueTypeNumber:
-                    std::cin >> a[i].long_val;
-                    break;
-                case ValueTypeDbl:
-                    std::cin >> a[i].dbl;
-                    break;
-                case ValueTypeList:
-                    return new_error(BadOp);
-                    break;
-                case ValueTypeString:
-                    std::getline(std::cin, a[i].str);
-                    break;
-                case ValueTypeError:
-                    break;
-            }     
+            std::string str;
+            std::getline(std::cin, str);
+
+            mpc_result_t res;
+
+            if(mpc_parse("input", str.c_str(), expr_parser, &res)) {
+                mpc_ast_print(ast(res.output)); 
+                auto node = ast(res.output);
+                Value v;
+                if(node->tag == std::string("ident|regex"))
+                    v = new_value(node->contents);
+                else
+                    v = eval(node);
+
+                set_var(a[i].str, v);
+            }
+            else {
+                mpc_err_print(res.error),
+                mpc_err_delete(res.error);
+            }
+                 
         }
         return new_error(NoValue);        
     }, true});
@@ -343,41 +331,25 @@ Value Evaluator::eval_comp(AstNode node) {
 }
 
 bool Evaluator::eval_if(AstNode node) {
+    for(int i = 0; i < node->children_num; i++) {
 
-    Value res = eval(node->children[1]);
-    if((res.type & ValueTypeBoolArithm) && res.long_val) eval_block(node->children[2]);
-    else if (res.type == ValueTypeError) std::cout << res << std::endl;
-    else return false;
+        if(std::strstr(node->children[i]->tag, "else")) {
+            eval_block(node->children[i]->children[1]); 
+            return true;
+        }
+
+        Value res = eval(node->children[i]->children[1]);
+        if((res.type & ValueTypeBoolArithm) && res.long_val) {
+            eval_block(node->children[i]->children[2]);
+            return true;
+        }
+        else if (res.type == ValueTypeError) {
+            std::cout << res << std::endl;
+            return false;
+        }
+    }
 
     return true;
-}
-
-bool Evaluator::eval_elif(AstNode node) {
-    if(std::strstr(node->children[0]->tag, "elif")) {
-        if(eval_elif(node->children[0])) return true; 
-    }
-    else if(std::strstr(node->children[0]->tag, "if")) {
-        if(eval_if(node->children[0])) return true;
-    }
-
-    Value v = eval(node->children[2]);
-    if(v.type != ValueTypeError && v.long_val) eval_block(node->children[3]);
-    else if(v.type == ValueTypeError) std::cout << v << std::endl;
-    else return false;
-
-    return true;
-}
-
-void Evaluator::eval_else(AstNode node) {
-    if(std::strstr(node->children[0]->tag, "elif")) {
-        if(eval_elif(node->children[0])) return;
-    }
-    
-    if(std::strstr(node->children[0]->tag, "if")) {
-        if(eval_if(node->children[0])) return;
-    }
-
-    eval_block(node->children[2]);
 }
 
 void Evaluator::eval_while(AstNode node) {
@@ -431,15 +403,7 @@ Value Evaluator::eval(AstNode node) {
         return val;
     }
 
-    else if(std::strstr(node->tag, "else")) {
-        eval_else(node);
-        return new_error(NoValue);
-    }
-    else if(std::strstr(node->tag, "elif")) {
-        eval_elif(node);
-        return new_error(NoValue);
-    }
-    else if(std::strstr(node->tag, "if")) {
+    else if(std::strstr(node->tag, "cond")) {
         eval_if(node);
         return new_error(NoValue);
     }
@@ -472,11 +436,6 @@ Value Evaluator::eval(AstNode node) {
         }
 
         return x;
-    }
-
-    else if(std::strstr(node->tag, "if")) {
-        eval_if(node);
-        return new_error(NoValue);
     }
 
     else if(std::strstr(node->tag, "fundef")){

@@ -60,7 +60,7 @@ int main(int argc, char *argv[]) {
             expr, st, fd, var, lst, top, dbl, cmd);
 
     Evaluator eval;
-    eval.init(cmd);
+    eval.init(cmd, norm);
 
     if(argc < 2) { /* run interactive mode */
         try {
