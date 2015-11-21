@@ -380,25 +380,31 @@ Value Evaluator::eval(AstNode node) {
     }
 
     else if(std::strstr(node->tag, "var")) {
-        if(node->children_num == 2) { // initialize variable
-            std::string name = node->children[1]->children[0]->contents;
-            Value val = eval(node->children[1]->children[2]);
-            new_var(name, val);
+        for(int i = 1; i < node->children_num; i += 2) {
 
-            return val;
-        }
-        
-        else {
-            std::string name = node->children[2]->contents;
-            new_var(name, new_error(NoValue));
-            return new_error(NoValue);
+            if(std::strstr(node->children[i]->tag, "assign")) { // initialize variable
+                std::string name = node->children[i]->children[0]->contents;
+                Value val = eval(node->children[i]->children[2]);
+                new_var(name, val);
+            }
+
+            else {
+                std::string name = node->children[i]->contents;
+                new_var(name, new_error(NoValue));
+            }
         }
 
+        return new_error(NoValue);
     }
 
     else if(std::strstr(node->tag, "assign")) {
         std::string name = node->children[0]->contents;
         Value val = eval(node->children[2]);
+
+        Value var = get_var(name);
+        if(var.type == ValueTypeError && val.error == UnknownSym)
+            return new_error(UnknownSym);
+
         set_var(name, val);
         return val;
     }

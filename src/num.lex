@@ -11,11 +11,11 @@ normal   : <str> | <func> | <dbl> | <number> | <bool> | <ident> | <gcomp> | <lis
 comp     : <normal> <operator> <expr>;
 gcomp    : '(' <comp> ')' ;
 expr     : <comp> | <gcomp> | <normal> | <list> | '(' <operator> <expr>+ ')' ;
-assign   : <ident> '=' <expr> ';' ;
-var      : "var" <assign> | "var" <ident> ";" ;
+assign   : <ident> '=' <expr> ;
+var      : "var" (<assign> | <ident>) (',' (<assign> | <ident>))* ';' ;
 list     : '[' <args> ']' ;
 str      : /\"(\\\\.|[^\"])*\"/ ;
-state    : <var> | <assign> | <func> ';' | <cond> | <while> ;
+state    : <var> | <assign> ';' | <func> ';' | <cond> | <while> ;
 if       : "if" <gcomp> <body> ;
 elif     : "elif" <gcomp> <body> ;
 else     : "else" <body> ;
