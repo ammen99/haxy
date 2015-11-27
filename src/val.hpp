@@ -37,6 +37,8 @@ struct Value {
         List lst;
         String str;
     };
+    
+    bool return_value = false;
 
     Value();
     Value(const Value&  other);

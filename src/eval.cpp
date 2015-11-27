@@ -26,6 +26,20 @@ void Evaluator::pop_scope() {
     current_scope = parent_scope;
 }
 
+void Evaluator::print_trace() {
+    std::string res;
+
+    auto cscope = current_scope;
+
+    while(cscope) {
+        res = cscope->name + "\n" + res;
+        cscope = cscope->parent_scope;
+    }
+
+    std::cout << res << std::endl;
+    return; 
+}
+
 void Evaluator::new_var(std::string name, Value val) {
     current_scope->vars[name] = val;
 }
@@ -59,7 +73,7 @@ Value Evaluator::get_var(std::string name) {
 }
 
 
-void Evaluator::new_func(std::string name, AstNode node) {
+void Evaluator::new_func(std::string name, AstNodeT node) {
     current_scope->funcs[name] = Func{0, MAXINT, [=] (Args a) {
         return call_func(node, a);
     }, false};
@@ -74,14 +88,15 @@ void Evaluator::new_func(std::string name, Func f) {
     }, f.eval_args_by_identifier};
 }
 
-Value Evaluator::call_func(AstNode node, Args a) {
-    create_new_scope(node->children[0]->contents + std::string("_call"));
-    auto args = node->children[1]->children[2];    
+Value Evaluator::call_func(AstNodeT node, Args a) {
+    create_new_scope(node->children[1]->children[0]->contents + std::string("()"));
 
-    for(int i = 0; i < args->children_num && i < a.size() * 2; i += 2)
-        new_var(args->children[i]->contents, a[i / 2]); 
+    Args names = eval_args_identifiers(node->children[1]->children[2]);
+    for(int i = 0; i < names.size() && i < a.size(); i++)
+        new_var(names[i].str, a[i]);
 
     Value v = eval_block(node->children[2]);
+    v.return_value = false;
     pop_scope();
 
     return v;
@@ -157,10 +172,12 @@ void Evaluator::add_builtin_functions() {
 
     new_func("print", {0, MAXINT, [=] (Args a) {
         for(int i = 0; i < a.size(); i++)
-            std::cout << a[i] << "| ";
+            std::cout << a[i] << " ";
         std::cout << std::endl;
         return new_error(NoValue); 
     }, false});
+
+    new_func("trace", {0, 0, [=] (Args a) {print_trace(); return new_error(NoValue);}, false});
 
     new_func("readln", {1, MAXINT, [=] (Args a) {
         for(int i = 0; i < a.size(); i++) {
@@ -240,22 +257,18 @@ Value Evaluator::eval_int(std::string str) {
     return new_value(val);
 }
 
-Args Evaluator::eval_args(AstNode node) {
-    std::cout << "Eval args" << std::endl;
-
+Args Evaluator::eval_args(AstNodeT node) {
     Args args;
 
     if(std::strstr(node->tag, "noarg")) {
         return Args{};
     }
 
-    if(!std::strstr(node->tag, "args")) {
-        std::cout << "single args with expr" << std::endl;
+    if(!std::strstr(node->tag, "args"))
         return Args{eval(node)};
-    }
+
     else if(node->children_num == 0) {
-        std::cout << "No args given" << std::endl;
-        AstNode as = new mpc_ast_t;
+        AstNodeT as = new mpc_ast_t;
         std::memcpy(as, node, sizeof(mpc_ast_t));
 
         Value val = eval(as);
@@ -264,17 +277,13 @@ Args Evaluator::eval_args(AstNode node) {
     }
 
 
-    std::cout << "Args num children " << node->children_num << std::endl;
-    for(int i = 0; i < node->children_num; i += 2) {
+    for(int i = 0; i < node->children_num; i += 2)
         args.push_back(eval(node->children[i]));
-    }
 
-    std::cout << "num args final" << args.size() << std::endl;
     return args;
 }
 
-Args Evaluator::eval_args_identifiers(AstNode node) {
-    std::cout << "eval args identifiers" << std::endl;
+Args Evaluator::eval_args_identifiers(AstNodeT node) {
     Args args;
 
     if(std::strstr(node->tag, "noarg"))
@@ -298,14 +307,13 @@ bool Evaluator::check_args(Args a) {
 }
 
 
-List Evaluator::eval_list(AstNode node) {
+List Evaluator::eval_list(AstNodeT node) {
     Args a = eval_args(node->children[1]); 
 
     List lst;
     for(auto x : a)
         lst.push_back(x);
 
-    std::cout << lst.size() << std::endl;
     return lst;
 }
 
@@ -314,19 +322,16 @@ Value Evaluator::eval_bool(std::string str) {
     else return new_bvalue(true);
 }
 
-Value Evaluator::eval_func(AstNode node) {
+Value Evaluator::eval_func(AstNodeT node) {
     std::string name = node->children[0]->contents;
     auto fn = get_func(name);
 
     Args args;
 
-    std::cout << "eval func " << name << std::endl;
     if(fn.eval_args_by_identifier)
         args = eval_args_identifiers(node->children[2]);
     else
         args = eval_args(node->children[2]);
-
-    std::cout << "Execute func " << name << " with args.size() = " << args.size() << std::endl;
 
     if(fn.min_arg <= args.size() && args.size() <= fn.max_arg)
         return fn.call(args);
@@ -335,48 +340,49 @@ Value Evaluator::eval_func(AstNode node) {
     
 }
 
-Value Evaluator::eval_comp(AstNode node) {
+Value Evaluator::eval_comp(AstNodeT node) {
     Value a = eval(node->children[0]);
     char *op = node->children[1]->contents;
     Value b = eval(node->children[2]);
 
-    std::cout << "Eval doit " << std::endl;
     return doit(a, op, b);
 }
 
-bool Evaluator::eval_if(AstNode node) {
+Value Evaluator::eval_if(AstNodeT node) {
     for(int i = 0; i < node->children_num; i++) {
 
         if(std::strstr(node->children[i]->tag, "else")) {
-            eval_block(node->children[i]->children[1], "else"); 
-            return true;
+            return eval_block(node->children[i]->children[1], "else"); 
         }
 
         Value res = eval(node->children[i]->children[1]);
         if((res.type & ValueTypeBoolArithm) && res.long_val) {
-            eval_block(node->children[i]->children[2], "if");
-            return true;
+            return eval_block(node->children[i]->children[2], "if");
         }
         else if (res.type == ValueTypeError) {
-            std::cout << res << std::endl;
-            return false;
+            std::cout << "error\n";
+            res.return_value = true;
+            return res;
         }
     }
 
-    return true;
+    return new_value(NoValue);;
 }
 
-void Evaluator::eval_while(AstNode node) {
+Value Evaluator::eval_while(AstNodeT node) {
     auto val = eval(node->children[1]);
 
     while((val.type & ValueTypeBoolArithm) && val.long_val) {
-        eval_block(node->children[2], "while");
+        Value tmp = eval_block(node->children[2], "while");
+        if(tmp.return_value) return tmp;
         val = eval(node->children[1]);
     }
+
+    return new_error(NoValue);
 }
 
 
-Value Evaluator::eval(AstNode node) {
+Value Evaluator::eval(AstNodeT node) {
 
     if(std::strstr(node->tag, "number"))
         return eval_int(node->contents);
@@ -388,13 +394,14 @@ Value Evaluator::eval(AstNode node) {
         return eval_bool(node->contents); 
 
     else if(std::strstr(node->tag, "str")) {
-        std::cout << "strstr" << std::endl;
         auto tmp = String(node->contents);
         return new_value(tmp.substr(1, tmp.length() - 2));
     }
 
     else if(std::strstr(node->tag, "return")) {
-        return eval(node->children[1]);
+        Value v = eval(node->children[1]);
+        v.return_value = true;
+        return v;
     }
 
     else if(std::strstr(node->tag, "var")) {
@@ -427,15 +434,11 @@ Value Evaluator::eval(AstNode node) {
         return val;
     }
 
-    else if(std::strstr(node->tag, "cond")) {
-        eval_if(node);
-        return new_error(NoValue);
-    }
+    else if(std::strstr(node->tag, "cond"))
+        return eval_if(node);
 
-    else if(std::strstr(node->tag, "while")) {
-        eval_while(node);
-        return new_error(NoValue);
-    }
+    else if(std::strstr(node->tag, "while"))
+        return eval_while(node);
 
     else if(std::strstr(node->tag, "ident")) {
         std::string name = node->contents;
@@ -449,7 +452,6 @@ Value Evaluator::eval(AstNode node) {
 
     else if(std::strstr(node->tag, "expr")) {
 
-        std::cout << "Expression " << std::endl;
         char *op = node->children[1]->contents;
         Value x = eval(node->children[2]);
 
@@ -484,17 +486,14 @@ Value Evaluator::eval(AstNode node) {
     return new_error(NoValue);
 }
 
-Value Evaluator::eval_block(AstNode node, std::string new_scope) {
+Value Evaluator::eval_block(AstNodeT node, std::string new_scope) {
     create_new_scope(new_scope);
     for(int i = 1; i < node->children_num - 1; i++) {
-        if(std::strstr(node->children[i]->tag, "return")) {
+        Value v = eval(node->children[i]);
+        if(v.return_value) {
             pop_scope();
-            std::cout << "return 0\n";
-            return eval(node->children[i]->children[1]);
+            return v;
         }
-
-        else
-            eval(node->children[i]);
     }
     pop_scope();
 

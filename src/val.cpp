@@ -12,6 +12,7 @@ Value::Value() {
 
 Value::Value(const Value &other) {
     type = other.type;
+    return_value = other.return_value;
     switch(type) {
         case ValueTypeNumber:
         case ValueTypeBool:
@@ -34,6 +35,7 @@ Value::Value(const Value &other) {
 
 Value::Value(const Value &&other) {
     type = other.type;
+    return_value = other.return_value;
     switch(type) {
         case ValueTypeNumber:
         case ValueTypeBool:
@@ -65,6 +67,7 @@ Value::~Value() {
 Value Value::operator=(const Value &other) {
     if(this != &other) {
         type = other.type;
+        return_value = other.return_value;
         switch(type) {
             case ValueTypeNumber:
             case ValueTypeBool:
@@ -90,6 +93,7 @@ Value Value::operator=(const Value &other) {
 Value Value::operator=(const Value &&other) {
     if(this != &other) {
         type = other.type;
+        return_value = other.return_value;
         switch(type) {
             case ValueTypeNumber:
             case ValueTypeBool:
@@ -142,13 +146,9 @@ Value new_bvalue(bool b) {
 }
 
 Value new_value(String str) {
-
     Value v;
     v.type = ValueTypeString;
-
-    std::cout << "slow crappy thing" << std::endl;
     new(&v.str) String(std::move(str));
-    std::cout << "slower crappy thing" << std::endl;
 
     return v;
 }
