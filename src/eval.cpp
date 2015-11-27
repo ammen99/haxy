@@ -62,11 +62,16 @@ Value Evaluator::get_var(std::string name) {
 void Evaluator::new_func(std::string name, AstNode node) {
     current_scope->funcs[name] = Func{0, MAXINT, [=] (Args a) {
         return call_func(node, a);
-    }};
+    }, false};
 }
 
 void Evaluator::new_func(std::string name, Func f) {
-    current_scope->funcs[name] = f;
+    current_scope->funcs[name] = Func{f.min_arg, f.max_arg, [=] (Args a) {
+        create_new_scope(name + "_call"); 
+        Value v = f.call(a);
+        pop_scope();
+        return v;
+    }, f.eval_args_by_identifier};
 }
 
 Value Evaluator::call_func(AstNode node, Args a) {
@@ -76,10 +81,10 @@ Value Evaluator::call_func(AstNode node, Args a) {
     for(int i = 0; i < args->children_num && i < a.size() * 2; i += 2)
         new_var(args->children[i]->contents, a[i / 2]); 
 
-    eval_block(node->children[2]);
+    Value v = eval_block(node->children[2]);
     pop_scope();
 
-    return new_error(NoValue);
+    return v;
 }
 
 Func Evaluator::get_func(std::string name) {
@@ -157,7 +162,7 @@ void Evaluator::add_builtin_functions() {
         return new_error(NoValue); 
     }, false});
 
-    new_func("read", {1, MAXINT, [=] (Args a) {
+    new_func("readln", {1, MAXINT, [=] (Args a) {
         for(int i = 0; i < a.size(); i++) {
             std::string str;
             std::getline(std::cin, str);
@@ -182,6 +187,13 @@ void Evaluator::add_builtin_functions() {
                  
         }
         return new_error(NoValue);        
+    }, true});
+
+    new_func("read", {1, MAXINT, [=] (Args a) {
+            for(int i = 0; i < a.size(); i++) {
+                
+            }
+            return new_error(UnknownSym); 
     }, true});
 
     new_func("import", {1, 1, [=] (Args a) {
@@ -262,6 +274,7 @@ Args Evaluator::eval_args(AstNode node) {
 }
 
 Args Evaluator::eval_args_identifiers(AstNode node) {
+    std::cout << "eval args identifiers" << std::endl;
     Args args;
 
     if(std::strstr(node->tag, "noarg"))
@@ -307,6 +320,7 @@ Value Evaluator::eval_func(AstNode node) {
 
     Args args;
 
+    std::cout << "eval func " << name << std::endl;
     if(fn.eval_args_by_identifier)
         args = eval_args_identifiers(node->children[2]);
     else
@@ -334,13 +348,13 @@ bool Evaluator::eval_if(AstNode node) {
     for(int i = 0; i < node->children_num; i++) {
 
         if(std::strstr(node->children[i]->tag, "else")) {
-            eval_block(node->children[i]->children[1]); 
+            eval_block(node->children[i]->children[1], "else"); 
             return true;
         }
 
         Value res = eval(node->children[i]->children[1]);
         if((res.type & ValueTypeBoolArithm) && res.long_val) {
-            eval_block(node->children[i]->children[2]);
+            eval_block(node->children[i]->children[2], "if");
             return true;
         }
         else if (res.type == ValueTypeError) {
@@ -356,7 +370,7 @@ void Evaluator::eval_while(AstNode node) {
     auto val = eval(node->children[1]);
 
     while((val.type & ValueTypeBoolArithm) && val.long_val) {
-        eval_block(node->children[2]);
+        eval_block(node->children[2], "while");
         val = eval(node->children[1]);
     }
 }
@@ -377,6 +391,10 @@ Value Evaluator::eval(AstNode node) {
         std::cout << "strstr" << std::endl;
         auto tmp = String(node->contents);
         return new_value(tmp.substr(1, tmp.length() - 2));
+    }
+
+    else if(std::strstr(node->tag, "return")) {
+        return eval(node->children[1]);
     }
 
     else if(std::strstr(node->tag, "var")) {
@@ -466,9 +484,21 @@ Value Evaluator::eval(AstNode node) {
     return new_error(NoValue);
 }
 
-void Evaluator::eval_block(AstNode node) {
-    for(int i = 1; i < node->children_num - 1; i++)
-        std::cout << "Eval block " << eval(node->children[i]) << std::endl;
+Value Evaluator::eval_block(AstNode node, std::string new_scope) {
+    create_new_scope(new_scope);
+    for(int i = 1; i < node->children_num - 1; i++) {
+        if(std::strstr(node->children[i]->tag, "return")) {
+            pop_scope();
+            std::cout << "return 0\n";
+            return eval(node->children[i]->children[1]);
+        }
+
+        else
+            eval(node->children[i]);
+    }
+    pop_scope();
+
+    return new_error(NoValue);
 }
 
 void Evaluator::eval_file(std::string name) {

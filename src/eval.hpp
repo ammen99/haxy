@@ -59,9 +59,8 @@ class Evaluator {
     Value eval_comp(AstNode node);
 
     /* evaluates a series of instructions
-     * does not return a value
-     * introduces a new scope */
-    void eval_block(AstNode node);
+     * and can introduce a new scope */
+    Value eval_block(AstNode node, std::string new_scope = "__unnamed__");
 
     bool eval_if(AstNode node);
 

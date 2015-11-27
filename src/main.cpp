@@ -52,9 +52,10 @@ int main(int argc, char *argv[]) {
     mpc_parser_t* cond = mpc_new("cond");
     mpc_parser_t* assi = mpc_new("assign");
     mpc_parser_t* cmd  = mpc_new("lispy");
+    mpc_parser_t* ret  = mpc_new("return");
 
     auto lex = load_file("/home/ilex/work/lispy/src/num.lex");
-    mpca_lang(MPCA_LANG_DEFAULT, lex.c_str(), wh, assi, felif, elif, elsee, cond, iff, norm,
+    mpca_lang(MPCA_LANG_DEFAULT, lex.c_str(), ret, wh, assi, felif, elif, elsee, cond, iff, norm,
             comp, gcomp, num, bl, op, body, str, id, 
             arg, args, noarg, func,
             expr, st, fd, var, lst, top, dbl, cmd);
@@ -91,6 +92,6 @@ int main(int argc, char *argv[]) {
 
     eval.cleanup();
     mpc_cleanup(9, elsee, elif, noarg, cond, num, str, wh, op, id, assi, felif, arg, args, bl, func, norm, body,
-            comp, gcomp, expr, var, lst, st, dbl, fd, iff, top, cmd);
+            comp, gcomp, expr, var, lst, st, dbl, ret, fd, iff, top, cmd);
     return 0;
 }
