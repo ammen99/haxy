@@ -307,18 +307,19 @@ Value operator * (const Value &a, const Value &b) {
     operator_guard(a, b);
 
     arithmetic_op_guard(a, b, *)
-    else if(a.type == ValueTypeList && b.type == ValueTypeNumber) {
-        std::cout << "here" << std::endl;
+    else
+        return new_error(BadOp);
+}
 
-        Value v = new_value(List{});
+Value times(const Value &a, const Value &b) {
+    if(b.type == ValueTypeNumber) {
+        Value v = new_value(List{}); 
         for(int i = 0; i < b.long_val; i++)
             v.lst.push_back(a);
-        std::cout << "Zu ende" << std::endl;
 
         return v;
     }
-    else
-        return new_error(BadOp);
+    else return new_error(BadOp);
 }
 
 #define abs(x) (x) < 0 ? (-(x)) : (x)

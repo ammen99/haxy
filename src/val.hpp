@@ -73,6 +73,8 @@ Value operator != (const Value &a, const Value &b);
 Value operator >  (const Value &a, const Value &b);
 Value operator <  (const Value &a, const Value &b);
 
+Value times(const Value &a, const Value &b);
+
 
 using Args = std::vector<Value>;
 

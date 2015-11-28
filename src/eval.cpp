@@ -242,6 +242,7 @@ Value doit(Value a, char* op, Value b) {
     if(o == "!=") return a != b;
     if(o == ">")  return a > b;
     if(o == "<")  return a < b;
+    if(o == "**") return times(a, b);
 
     return new_error(BadOp);
 }
@@ -402,6 +403,40 @@ Value Evaluator::eval(AstNodeT node) {
         Value v = eval(node->children[1]);
         v.return_value = true;
         return v;
+    }
+
+    else if(std::strstr(node->tag, "modlist")) {
+        std::string name = node->children[0]->children[0]->contents;
+
+        Value arr = get_var(name); 
+        if(arr.type != ValueTypeList) return new_error(UnknownSym);
+
+        Value index = eval(node->children[0]->children[2]);
+        if(index.type != ValueTypeNumber) return new_error(BadValue);
+
+
+        auto size = arr.lst.size();
+
+        /* numbering is mod size */
+        index.long_val = (index.long_val % size + size) % size;
+        arr.lst[index.long_val] = eval(node->children[2]);
+
+        set_var(name, arr);
+
+        return new_error(NoValue);
+    }
+
+    else if(std::strstr(node->tag, "listq")) {
+        std::string name = node->children[0]->contents;
+        Value arr = get_var(name);
+        if(arr.type != ValueTypeList) return new_error(BadOp);
+
+        Value index = eval(node->children[2]);
+        if(index.type != ValueTypeNumber) return new_error(BadValue);
+
+        auto size = arr.lst.size();
+        index.long_val = (index.long_val % size + size) % size;
+        return arr.lst[index.long_val];
     }
 
     else if(std::strstr(node->tag, "var")) {
