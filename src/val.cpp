@@ -126,14 +126,10 @@ Value new_value(long x) {
 }
 
 Value new_value(List l) {
-    std::cout << "Creating value from list" << std::endl;
     Value v;
-    std::cout << "Blah blah " << std::endl;
     v.type = ValueTypeList;
-    std::cout << "SSS" << l.size() << std::endl;
     new(&v.lst) List(std::move(l));
 
-    std::cout << "in std::move" << std::endl;
     return v;
 }
 
@@ -336,6 +332,15 @@ Value operator / (const Value &a, const Value &b) {
         return new_error(BadOp);
 }
 
+Value operator % (const Value &a, const Value &b) {
+    if(a.type == ValueTypeNumber && b.type == ValueTypeNumber) {
+        if(b.long_val == 0) return new_error(ZeroDiv); 
+        else return new_value(a.long_val % b.long_val);
+    }
+
+    return new_error(BadOp);
+}
+
 #define logic_operator_guard(a, b) \
     if(!(a.type & ValueTypeBoolArithm) || (!b.type & ValueTypeBoolArithm)) \
         return new_error(BadOp);
@@ -369,7 +374,6 @@ Value operator || (const Value &a, const Value &b) {
 // TODO: implement comparison for lists and strings 
 /* comparison operator */
 Value operator == (const Value &a, const Value &b) {
-    std::cout << "Operator == " << std::endl;
     compare_op_guard(a, b, ==)
     else return new_error(BadOp);
 }

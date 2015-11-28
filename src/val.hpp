@@ -62,6 +62,7 @@ Value operator + (const Value &a, const Value &b);
 Value operator - (const Value &a, const Value &b);
 Value operator * (const Value &a, const Value &b);
 Value operator / (const Value &a, const Value &b);
+Value operator % (const Value &a, const Value &b);
 
 Value operator && (const Value &a, const Value &b);
 Value operator || (const Value &a, const Value &b);

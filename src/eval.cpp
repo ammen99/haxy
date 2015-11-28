@@ -233,6 +233,8 @@ Value doit(Value a, char* op, Value b) {
     if(o == "-") return a - b;
     if(o == "*") return a * b;
     if(o == "/") return a / b;
+    if(o == "%") return a % b;
+
     if(o == "||") return a || b;
     if(o == "&&") return a && b;
 
@@ -350,6 +352,7 @@ Value Evaluator::eval_comp(AstNodeT node) {
 }
 
 Value Evaluator::eval_if(AstNodeT node) {
+    std::cout << "eval if" << std::endl;
     for(int i = 0; i < node->children_num; i++) {
 
         if(std::strstr(node->children[i]->tag, "else")) {
@@ -471,6 +474,18 @@ Value Evaluator::eval(AstNodeT node) {
 
     else if(std::strstr(node->tag, "cond"))
         return eval_if(node);
+
+    else if(std::strstr(node->tag, "if")) {
+        Value arg = eval(node->children[1]);
+
+        if((arg.type & ValueTypeBoolArithm) && arg.long_val) {
+            eval_block(node->children[2]); 
+        }
+        else if(arg.type == ValueTypeError)
+            return arg;
+
+        return new_error(BadValue);
+    }
 
     else if(std::strstr(node->tag, "while"))
         return eval_while(node);
