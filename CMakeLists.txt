@@ -15,7 +15,9 @@ file(GLOB SOURCES "src/*.c*")
 add_executable(haxy ${SOURCES})
 
 # Libraries
+target_compile_options(haxy PRIVATE -pg)
 target_link_libraries(haxy readline m)
+target_link_libraries(haxy -pg)
 
 # Installation
 install(TARGETS haxy DESTINATION bin)

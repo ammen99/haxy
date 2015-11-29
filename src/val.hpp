@@ -9,6 +9,8 @@
 #include <vector>
 #include <list>
 
+#include "shared_ptr.hpp"
+
 enum ValueType { 
     ValueTypeNumber = 1 << 0,
     ValueTypeDbl    = 1 << 1,
@@ -22,12 +24,13 @@ enum ValueType {
 
 enum Error { ZeroDiv, BadOp, BadValue, UnknownSym, NoValue, ArgumentNumberMismatch };
 
-struct Value;
+struct _Value;
+using Value = ptr::shared_ptr<_Value>;
 
 using List = std::vector<Value>;
 using String = std::string;
 
-struct Value {
+struct _Value {
     ValueType type;
 
     union {
@@ -40,12 +43,12 @@ struct Value {
     
     bool return_value = false;
 
-    Value();
-    Value(const Value&  other);
-    Value(const Value&& other);
-    Value operator = (const Value&  other);
-    Value operator = (const Value&& other);
-    ~Value();
+    _Value();
+    _Value(const _Value&  other);
+    _Value(const _Value&& other);
+    _Value operator = (const _Value&  other);
+    _Value operator = (const _Value&& other);
+    ~_Value();
 };
 
 Value new_value(long x);

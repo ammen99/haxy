@@ -5,12 +5,12 @@
 /* constructors/destructors/assignment operators */
 /* satisfying the rule of five */
 
-Value::Value() {
+_Value::_Value() {
     type = ValueTypeError;
     error = NoValue;
 }
 
-Value::Value(const Value &other) {
+_Value::_Value(const _Value &other) {
     type = other.type;
     return_value = other.return_value;
     switch(type) {
@@ -33,7 +33,7 @@ Value::Value(const Value &other) {
     }
 }
 
-Value::Value(const Value &&other) {
+_Value::_Value(const _Value &&other) {
     type = other.type;
     return_value = other.return_value;
     switch(type) {
@@ -56,7 +56,7 @@ Value::Value(const Value &&other) {
     }
 }
 
-Value::~Value() {
+_Value::~_Value() {
     if(type == ValueTypeList)
         lst.~vector();
 
@@ -64,7 +64,7 @@ Value::~Value() {
         str.~basic_string();
 }
 
-Value Value::operator=(const Value &other) {
+_Value _Value::operator=(const _Value &other) {
     if(this != &other) {
         type = other.type;
         return_value = other.return_value;
@@ -90,7 +90,7 @@ Value Value::operator=(const Value &other) {
     return *this;
 }
 
-Value Value::operator=(const Value &&other) {
+_Value _Value::operator=(const _Value &&other) {
     if(this != &other) {
         type = other.type;
         return_value = other.return_value;
@@ -118,49 +118,49 @@ Value Value::operator=(const Value &&other) {
 }
 
 Value new_value(long x) {
-    Value v;
-    v.type = ValueTypeNumber;
-    v.long_val = x;
+    Value v = ptr::shared_ptr<_Value>();;
+    v->type = ValueTypeNumber;
+    v->long_val = x;
 
     return v;
 }
 
 Value new_value(List l) {
-    Value v;
-    v.type = ValueTypeList;
-    new(&v.lst) List(std::move(l));
+    Value v = ptr::shared_ptr<_Value>();
+    v->type = ValueTypeList;
+    new(&v->lst) List(std::move(l));
 
     return v;
 }
 
 Value new_bvalue(bool b) {
-    Value v;
-    v.type = ValueTypeBool;
-    v.long_val = b ? 1 : 0;
+    Value v = ptr::shared_ptr<_Value>();
+    v->type = ValueTypeBool;
+    v->long_val = b ? 1 : 0;
 
     return v;
 }
 
 Value new_value(String str) {
-    Value v;
-    v.type = ValueTypeString;
-    new(&v.str) String(std::move(str));
+    Value v = ptr::shared_ptr<_Value>();
+    v->type = ValueTypeString;
+    new(&v->str) String(std::move(str));
 
     return v;
 }
 
 Value new_dvalue(double d) {
-    Value v;
-    v.type = ValueTypeDbl;
-    v.dbl = d;
+    Value v = ptr::shared_ptr<_Value>();
+    v->type = ValueTypeDbl;
+    v->dbl = d;
 
     return v;
 }
 
 Value new_error(Error e) {
-    Value v;
-    v.type = ValueTypeError;
-    v.error = e;
+    Value v = ptr::shared_ptr<_Value>();
+    v->type = ValueTypeError;
+    v->error = e;
 
     return v;
 }
@@ -191,44 +191,44 @@ namespace {
 
 std::ostream& operator << (std::ostream &stream, const Value &v) {
 
-    if(v.type == ValueTypeError && v.error != NoValue)
-        stream << "Error: " << getStringError(v.error); 
+    if(v->type == ValueTypeError && v->error != NoValue)
+        stream << "Error: " << getStringError(v->error); 
 
-    else if(v.type == ValueTypeError) { }
-    else if(v.type == ValueTypeList) {
+    else if(v->type == ValueTypeError) { }
+    else if(v->type == ValueTypeList) {
         stream << "[";
 
-        auto size = v.lst.size();
+        auto size = v->lst.size();
         for(size_t i = 0; i < size; ++i) 
             if(i < size - 1)
-                stream << v.lst[i] << ", ";
+                stream << v->lst[i] << ", ";
             else
-                stream << v.lst[i];
+                stream << v->lst[i];
 
         stream << "]";
     }
-    else if(v.type == ValueTypeBool) {
-        if(v.long_val)
+    else if(v->type == ValueTypeBool) {
+        if(v->long_val)
             stream << "true";
         else
             stream << "false";
     }
 
-    else if(v.type == ValueTypeString)
-        stream << "\"" << v.str << "\"";
+    else if(v->type == ValueTypeString)
+        stream << "\"" << v->str << "\"";
 
-    else if(v.type == ValueTypeDbl)
-        stream << v.dbl;
+    else if(v->type == ValueTypeDbl)
+        stream << v->dbl;
     else
-        stream << v.long_val;
+        stream << v->long_val;
     
     return stream;
 }
 
 
-#define operator_guard(a, b) if(a.type == ValueTypeError) \
+#define operator_guard(a, b) if(a->type == ValueTypeError) \
                                 return a; \
-                             if(b.type == ValueTypeError) \
+                             if(b->type == ValueTypeError) \
                                 return b;
 
 /* arithmetic operators */
@@ -236,40 +236,40 @@ std::ostream& operator << (std::ostream &stream, const Value &v) {
 
 /* concatenate to lists */
 Value concat(const Value &a, const Value &b) {
-    auto res = new_value(a.lst);
+    auto res = new_value(a->lst);
 
-    for(auto x : b.lst)
-        res.lst.push_back(x);
+    for(auto x : b->lst)
+        res->lst.push_back(x);
 
     return res;
 }
 
 /* append a list to a value */
 Value append(const Value &a, const Value &b) {
-    auto res = new_value(a.lst);
-    res.lst.push_back(b);
+    auto res = new_value(a->lst);
+    res->lst.push_back(b);
     return res;
 }
 
 /* insert a value in front of the list */
 Value insertFront(const Value &a, const Value &b) {
-    auto res = new_value(b.lst);
-    res.lst.insert(res.lst.begin(), a);
+    auto res = new_value(b->lst);
+    res->lst.insert(res->lst.begin(), a);
     return res;
 }
 
 #define arithmetic_op_guard(a, b, op) \
-    if((a.type & ValueTypeArithmetic) && \
-        (b.type & ValueTypeArithmetic)) { \
+    if((a->type & ValueTypeArithmetic) && \
+        (b->type & ValueTypeArithmetic)) { \
           \
-        if(a.type == ValueTypeDbl && b.type == ValueTypeDbl) \
-            return new_dvalue(a.dbl op b.dbl); \
-        else if(a.type == ValueTypeDbl) \
-            return new_dvalue(a.dbl op double(b.long_val)); \
-        else if(b.type == ValueTypeDbl) \
-            return new_dvalue(double(a.long_val) op b.dbl); \
+        if(a->type == ValueTypeDbl && b->type == ValueTypeDbl) \
+            return new_dvalue(a->dbl op b->dbl); \
+        else if(a->type == ValueTypeDbl) \
+            return new_dvalue(a->dbl op double(b->long_val)); \
+        else if(b->type == ValueTypeDbl) \
+            return new_dvalue(double(a->long_val) op b->dbl); \
         else \
-            return new_value(a.long_val op b.long_val); \
+            return new_value(a->long_val op b->long_val); \
     }
 
 
@@ -277,16 +277,16 @@ Value insertFront(const Value &a, const Value &b) {
 Value operator + (const Value &a, const Value &b) {
     operator_guard(a, b);
 
-    if(a.type == ValueTypeList && b.type == ValueTypeList)
+    if(a->type == ValueTypeList && b->type == ValueTypeList)
         return concat(a, b);
-    else if(a.type == ValueTypeList)
+    else if(a->type == ValueTypeList)
         return append(a, b);
-    else if(b.type == ValueTypeList)
+    else if(b->type == ValueTypeList)
         return insertFront(a, b);
 
     arithmetic_op_guard(a, b, +)
-    else if(b.type == ValueTypeString)
-        return new_value(a.str + b.str);
+    else if(b->type == ValueTypeString)
+        return new_value(a->str + b->str);
     else
         return new_error(BadOp);
 }
@@ -308,10 +308,10 @@ Value operator * (const Value &a, const Value &b) {
 }
 
 Value times(const Value &a, const Value &b) {
-    if(b.type == ValueTypeNumber) {
+    if(b->type == ValueTypeNumber) {
         Value v = new_value(List{}); 
-        for(int i = 0; i < b.long_val; i++)
-            v.lst.push_back(a);
+        for(int i = 0; i < b->long_val; i++)
+            v->lst.push_back(a);
 
         return v;
     }
@@ -323,8 +323,8 @@ Value times(const Value &a, const Value &b) {
 Value operator / (const Value &a, const Value &b) {
     operator_guard(a, b);
 
-    if((b.type == ValueTypeNumber && b.long_val == 0) ||
-        (b.type == ValueTypeDbl   && abs(b.dbl) < 1e-15))
+    if((b->type == ValueTypeNumber && b->long_val == 0) ||
+        (b->type == ValueTypeDbl   && abs(b->dbl) < 1e-15))
         return new_error(ZeroDiv);
 
     arithmetic_op_guard(a, b, /)
@@ -333,42 +333,42 @@ Value operator / (const Value &a, const Value &b) {
 }
 
 Value operator % (const Value &a, const Value &b) {
-    if(a.type == ValueTypeNumber && b.type == ValueTypeNumber) {
-        if(b.long_val == 0) return new_error(ZeroDiv); 
-        else return new_value(a.long_val % b.long_val);
+    if(a->type == ValueTypeNumber && b->type == ValueTypeNumber) {
+        if(b->long_val == 0) return new_error(ZeroDiv); 
+        else return new_value(a->long_val % b->long_val);
     }
 
     return new_error(BadOp);
 }
 
 #define logic_operator_guard(a, b) \
-    if(!(a.type & ValueTypeBoolArithm) || (!b.type & ValueTypeBoolArithm)) \
+    if(!(a->type & ValueTypeBoolArithm) || (!b->type & ValueTypeBoolArithm)) \
         return new_error(BadOp);
 
 /* boolean operators */
 Value operator && (const Value &a, const Value &b) {
     logic_operator_guard(a, b);
-    return new_bvalue(a.long_val && b.long_val);
+    return new_bvalue(a->long_val && b->long_val);
 }
 Value operator || (const Value &a, const Value &b) {
     logic_operator_guard(a, b);
-    return new_bvalue(a.long_val || b.long_val);
+    return new_bvalue(a->long_val || b->long_val);
 }
 
 #define compare_op_guard(a, b, op) \
-    if((a.type & ValueTypeArithmetic) && \
-        (b.type & ValueTypeArithmetic)) { \
+    if((a->type & ValueTypeArithmetic) && \
+        (b->type & ValueTypeArithmetic)) { \
           \
-        if(a.type == ValueTypeDbl && b.type == ValueTypeDbl) \
-            return new_bvalue(a.dbl op b.dbl); \
-        else if(a.type == ValueTypeDbl) \
-            return new_bvalue(a.dbl op double(b.long_val)); \
-        else if(b.type == ValueTypeDbl) \
-            return new_bvalue(double(a.long_val) op b.dbl); \
+        if(a->type == ValueTypeDbl && b->type == ValueTypeDbl) \
+            return new_bvalue(a->dbl op b->dbl); \
+        else if(a->type == ValueTypeDbl) \
+            return new_bvalue(a->dbl op double(b->long_val)); \
+        else if(b->type == ValueTypeDbl) \
+            return new_bvalue(double(a->long_val) op b->dbl); \
         else \
-            return new_bvalue(a.long_val op b.long_val); \
-    } else if(a.type == ValueTypeString && b.type == ValueTypeString) \
-        return new_bvalue(a.str op b.str);
+            return new_bvalue(a->long_val op b->long_val); \
+    } else if(a->type == ValueTypeString && b->type == ValueTypeString) \
+        return new_bvalue(a->str op b->str);
 
 
 // TODO: implement comparison for lists and strings 

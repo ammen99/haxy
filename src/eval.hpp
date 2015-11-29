@@ -27,7 +27,7 @@ class Evaluator {
 
     void  new_var(std::string name, Value val);
     void  set_var(std::string name, Value val);
-    Value get_var(std::string name);
+    const Value& get_var(std::string name);
 
     Func get_func(std::string name);
     void new_func(std::string name, AstNodeT node);

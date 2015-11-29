@@ -1,10 +1,12 @@
 #include "eval.hpp"
+#define unknownsym "___afx_unknown_sym___"
 
 void Evaluator::init(mpc_parser_t *p, mpc_parser_t *e) {
     this->parser = p;
     this->expr_parser = e;
 
     create_new_scope("__global__");
+    //new_var(unknownsym, new_error(UnknownSym));
     add_builtin_functions();
 }
 
@@ -57,7 +59,7 @@ void Evaluator::set_var(std::string name, Value val) {
     }
 }
 
-Value Evaluator::get_var(std::string name) {
+const Value& Evaluator::get_var(std::string name) {
 
     auto search_scope = current_scope;
 
@@ -69,7 +71,7 @@ Value Evaluator::get_var(std::string name) {
             return it->second;
     }
 
-    return new_error(UnknownSym);
+    return get_var(unknownsym);
 }
 
 
@@ -93,10 +95,10 @@ Value Evaluator::call_func(AstNodeT node, Args a) {
 
     Args names = eval_args_identifiers(node->children[1]->children[2]);
     for(int i = 0; i < names.size() && i < a.size(); i++)
-        new_var(names[i].str, a[i]);
+        new_var(names[i]->str, a[i]);
 
     Value v = eval_block(node->children[2]);
-    v.return_value = false;
+    v->return_value = false;
     pop_scope();
 
     return v;
@@ -130,7 +132,7 @@ void Evaluator::add_builtin_functions() {
         if(!check_args(a)) return new_error(BadValue);
 
         for(auto x : a)
-            s.long_val += x.long_val; 
+            s->long_val += x->long_val; 
 
         return s;
     }, false});
@@ -141,7 +143,7 @@ void Evaluator::add_builtin_functions() {
         if(!check_args(a)) return new_error(BadValue);
 
         for(auto x : a)
-            s.long_val *= x.long_val;
+            s->long_val *= x->long_val;
 
         return s;
     }, false});
@@ -149,8 +151,8 @@ void Evaluator::add_builtin_functions() {
     new_func("sum_range", {2, 2, [=] (Args a) {
         if(!check_args(a)) return new_error(BadValue);
 
-        int start = a[0].long_val;
-        int end = a[1].long_val;
+        int start = a[0]->long_val;
+        int end = a[1]->long_val;
 
         return new_value(end * (end + 1) / 2 - (start - 1) * (start) / 2);
     }, false});
@@ -160,11 +162,11 @@ void Evaluator::add_builtin_functions() {
 
         if(!check_args(a)) return new_error(BadValue);
 
-        int start = a[0].long_val;
-        int end = a[1].long_val;
+        int start = a[0]->long_val;
+        int end = a[1]->long_val;
 
         for(int i = start; i <= end; i++) {
-            v.long_val *= i;
+            v->long_val *= i;
         }
 
         return v;
@@ -195,7 +197,7 @@ void Evaluator::add_builtin_functions() {
                 else
                     v = eval(node);
 
-                set_var(a[i].str, v);
+                set_var(a[i]->str, v);
             }
             else {
                 mpc_err_print(res.error),
@@ -215,10 +217,10 @@ void Evaluator::add_builtin_functions() {
 
     new_func("import", {1, 1, [=] (Args a) {
 
-        if(a[0].type != ValueTypeString)
+        if(a[0]->type != ValueTypeString)
             return new_error(BadValue);
 
-        eval_file(a[0].str + ".hx");
+        eval_file(a[0]->str + ".hx");
         return new_error(NoValue); 
     }, true});
 }
@@ -250,14 +252,7 @@ Value doit(Value a, char* op, Value b) {
 }
 
 Value Evaluator::eval_int(std::string str) {
-    long val = 0;
-    for(int i = 0; i < str.length(); i++) {
-        if(!std::isdigit(str[i])) return new_error(BadValue); 
-        val *= 10;
-        val += str[i] - '0';
-    }
-
-    return new_value(val);
+    return new_value(std::atoi(str.c_str()));
 }
 
 Args Evaluator::eval_args(AstNodeT node) {
@@ -304,7 +299,7 @@ Args Evaluator::eval_args_identifiers(AstNodeT node) {
 
 bool Evaluator::check_args(Args a) {
     for(auto arg : a)
-        if(arg.type == ValueTypeError) return false;
+        if(arg->type == ValueTypeError) return false;
 
     return true;
 }
@@ -360,12 +355,12 @@ Value Evaluator::eval_if(AstNodeT node) {
         }
 
         Value res = eval(node->children[i]->children[1]);
-        if((res.type & ValueTypeBoolArithm) && res.long_val) {
+        if((res->type & ValueTypeBoolArithm) && res->long_val) {
             return eval_block(node->children[i]->children[2], "if");
         }
-        else if (res.type == ValueTypeError) {
+        else if (res->type == ValueTypeError) {
             std::cout << "error\n";
-            res.return_value = true;
+            res->return_value = true;
             return res;
         }
     }
@@ -376,9 +371,9 @@ Value Evaluator::eval_if(AstNodeT node) {
 Value Evaluator::eval_while(AstNodeT node) {
     auto val = eval(node->children[1]);
 
-    while((val.type & ValueTypeBoolArithm) && val.long_val) {
+    while((val->type & ValueTypeBoolArithm) && val->long_val) {
         Value tmp = eval_block(node->children[2], "while");
-        if(tmp.return_value) return tmp;
+        if(tmp->return_value) return tmp;
         val = eval(node->children[1]);
     }
 
@@ -387,6 +382,7 @@ Value Evaluator::eval_while(AstNodeT node) {
 
 
 Value Evaluator::eval(AstNodeT node) {
+
 
     if(std::strstr(node->tag, "number"))
         return eval_int(node->contents);
@@ -404,7 +400,7 @@ Value Evaluator::eval(AstNodeT node) {
 
     else if(std::strstr(node->tag, "return")) {
         Value v = eval(node->children[1]);
-        v.return_value = true;
+        v->return_value = true;
         return v;
     }
 
@@ -412,19 +408,19 @@ Value Evaluator::eval(AstNodeT node) {
         std::string name = node->children[0]->children[0]->contents;
 
         Value arr = get_var(name); 
-        if(arr.type != ValueTypeList) return new_error(UnknownSym);
+        if(arr->type != ValueTypeList) return new_error(UnknownSym);
 
         Value index = eval(node->children[0]->children[2]);
-        if(index.type != ValueTypeNumber) return new_error(BadValue);
+        if(index->type != ValueTypeNumber) return new_error(BadValue);
 
 
-        auto size = arr.lst.size();
+        auto size = arr->lst.size();
 
         /* numbering is mod size */
-        index.long_val = (index.long_val % size + size) % size;
-        arr.lst[index.long_val] = eval(node->children[2]);
+        index->long_val = (index->long_val % size + size) % size;
+        arr->lst[index->long_val] = eval(node->children[2]);
 
-        set_var(name, arr);
+        //set_var(name, arr);
 
         return new_error(NoValue);
     }
@@ -432,14 +428,14 @@ Value Evaluator::eval(AstNodeT node) {
     else if(std::strstr(node->tag, "listq")) {
         std::string name = node->children[0]->contents;
         Value arr = get_var(name);
-        if(arr.type != ValueTypeList) return new_error(BadOp);
+        if(arr->type != ValueTypeList) return new_error(BadOp);
 
         Value index = eval(node->children[2]);
-        if(index.type != ValueTypeNumber) return new_error(BadValue);
+        if(index->type != ValueTypeNumber) return new_error(BadValue);
 
-        auto size = arr.lst.size();
-        index.long_val = (index.long_val % size + size) % size;
-        return arr.lst[index.long_val];
+        auto size = arr->lst.size();
+        index->long_val = (index->long_val % size + size) % size;
+        return arr->lst[index->long_val];
     }
 
     else if(std::strstr(node->tag, "var")) {
@@ -447,8 +443,11 @@ Value Evaluator::eval(AstNodeT node) {
 
             if(std::strstr(node->children[i]->tag, "assign")) { // initialize variable
                 std::string name = node->children[i]->children[0]->contents;
+                std::cout << "btw" << std::endl;
                 Value val = eval(node->children[i]->children[2]);
+                std::cout << "blah blah " << val << std::endl;
                 new_var(name, val);
+                std::cout << "danach" << std::endl;
             }
 
             else {
@@ -465,7 +464,7 @@ Value Evaluator::eval(AstNodeT node) {
         Value val = eval(node->children[2]);
 
         Value var = get_var(name);
-        if(var.type == ValueTypeError && val.error == UnknownSym)
+        if(var->type == ValueTypeError && val->error == UnknownSym)
             return new_error(UnknownSym);
 
         set_var(name, val);
@@ -478,10 +477,10 @@ Value Evaluator::eval(AstNodeT node) {
     else if(std::strstr(node->tag, "if")) {
         Value arg = eval(node->children[1]);
 
-        if((arg.type & ValueTypeBoolArithm) && arg.long_val) {
+        if((arg->type & ValueTypeBoolArithm) && arg->long_val) {
             eval_block(node->children[2]); 
         }
-        else if(arg.type == ValueTypeError)
+        else if(arg->type == ValueTypeError)
             return arg;
 
         return new_error(BadValue);
@@ -528,8 +527,9 @@ Value Evaluator::eval(AstNodeT node) {
     else {
         for(int i = 0; i < node->children_num; i++) {
             auto v = eval(node->children[i]);
-            if(v.type != ValueTypeError) return v;
-            else if(v.error != NoValue) return v;
+            if(v->type != ValueTypeError) return v;
+            else if(v->error != NoValue) return v;
+            
         }
     }
 
@@ -540,7 +540,7 @@ Value Evaluator::eval_block(AstNodeT node, std::string new_scope) {
     create_new_scope(new_scope);
     for(int i = 1; i < node->children_num - 1; i++) {
         Value v = eval(node->children[i]);
-        if(v.return_value) {
+        if(v->return_value) {
             pop_scope();
             return v;
         }
