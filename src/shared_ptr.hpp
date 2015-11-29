@@ -1,19 +1,9 @@
 #include <iostream>
 
 namespace ptr {
-    class ref_counter {
-        private:
-            int counter;
-
-        public:
-            void inc() {++counter;};
-            void dec() {--counter;};
-            int  get() {return counter;};
-    };
-
     template<class T> class shared_ptr {
         private:
-            ref_counter *refcnt;
+            int *refcnt;
             T* ptr;
 
             void self_destroy() {
@@ -22,39 +12,38 @@ namespace ptr {
             }
         public:
             shared_ptr() {
-                refcnt = new ref_counter();
-                refcnt->inc();
+                refcnt = new int; 
+                ++*refcnt;
                 ptr = new T;
             }
 
             shared_ptr(T* p) : ptr(p) {
-                refcnt = new ref_counter();
-                refcnt->inc();
+                refcnt = new int;
+                ++*refcnt;
             } 
 
             shared_ptr(const shared_ptr<T> &other) {
                 refcnt = other.refcnt;
                 ptr = other.ptr;
 
-                refcnt->inc();
+                ++*refcnt;
             }
 
             shared_ptr(const shared_ptr<T>&& other) {
                 refcnt = other.refcnt;
                 ptr = other.ptr;
 
-                refcnt->inc();
+                ++*refcnt;
             }
 
             shared_ptr<T> operator=(const shared_ptr<T>& other) {
                 if(this != &other) {
-                    refcnt->dec(); 
-                    if(refcnt->get() < 1)
+                    if(--*refcnt < 1)
                         self_destroy();
 
                     ptr = other.ptr;
                     refcnt = other.refcnt;
-                    refcnt->inc();
+                    ++*refcnt;
                 }
 
                 return *this;
@@ -63,29 +52,27 @@ namespace ptr {
 
             shared_ptr<T> operator=(const shared_ptr<T>&& other) {
                 if(this != &other) {
-                    refcnt->dec(); 
-                    if(refcnt->get() < 1)
+                    if(--*refcnt < 1)
                         self_destroy();
 
                     ptr = other.ptr;
                     refcnt = other.refcnt;
-                    refcnt->inc();
+                    ++*refcnt;
                 }
 
                 return *this;
             }
 
             ~shared_ptr() {
-                refcnt->dec();
-                if(refcnt->get() < 1)
+                if(--*refcnt < 1)
                     self_destroy();
             }
 
-            T& operator*() const {
+            inline T& operator*() const {
                 return *ptr;
             }
 
-            T* operator->() const {
+            inline T* operator->() const {
                 return ptr;
             }
     };

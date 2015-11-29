@@ -15,8 +15,14 @@ std::string load_file(std::string name);
 using AstNodeT = mpc_ast_t*;
 class Evaluator { 
     struct Scope {
+        static std::unordered_map<std::string, Value> vars_predefined_empty;
+        static std::unordered_map<std::string, Func> funcs_predefined_empty;
+
         std::unordered_map<std::string, Value> vars;
         std::unordered_map<std::string, Func> funcs;
+
+        Scope();
+
         std::string name;
         Scope *parent_scope = nullptr;
     } *current_scope = nullptr;
@@ -25,9 +31,10 @@ class Evaluator {
 
     std::vector<mpc_ast_t*> loaded_asts;
 
-    void  new_var(std::string name, Value val);
-    void  set_var(std::string name, Value val);
-    const Value& get_var(std::string name);
+    void   new_var(std::string name, Value val);
+    void   set_var(std::string name, Value val);
+    Value& get_var(std::string name);
+    bool   has_var(std::string name);
 
     Func get_func(std::string name);
     void new_func(std::string name, AstNodeT node);
@@ -55,7 +62,7 @@ class Evaluator {
 
     /* evaluates a series of instructions
      * and can introduce a new scope */
-    Value eval_block(AstNodeT node, std::string new_scope = "__unnamed__");
+    Value eval_block(AstNodeT node, std::string new_scope = "__unnamed__", bool create = true);
 
     Value eval_if(AstNodeT node);
 

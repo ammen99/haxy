@@ -1,5 +1,10 @@
 #include "eval.hpp"
+
 #define unknownsym "___afx_unknown_sym___"
+#define donotcreatescope "________________________"
+
+std::unordered_map<std::string, Value> Evaluator::Scope::vars_predefined_empty;
+std::unordered_map<std::string, Func> Evaluator::Scope::funcs_predefined_empty;
 
 void Evaluator::init(mpc_parser_t *p, mpc_parser_t *e) {
     this->parser = p;
@@ -12,7 +17,11 @@ void Evaluator::init(mpc_parser_t *p, mpc_parser_t *e) {
 
 /* definitions for Scope */
 
+Evaluator::Scope::Scope() : vars(Evaluator::Scope::vars_predefined_empty),
+                            funcs(Evaluator::Scope::funcs_predefined_empty) {}
+
 void Evaluator::create_new_scope(std::string name) {
+
     Scope *new_scope = new Scope;
     new_scope->name = name;
     new_scope->parent_scope = current_scope;
@@ -59,7 +68,7 @@ void Evaluator::set_var(std::string name, Value val) {
     }
 }
 
-const Value& Evaluator::get_var(std::string name) {
+Value& Evaluator::get_var(std::string name) {
 
     auto search_scope = current_scope;
 
@@ -72,6 +81,20 @@ const Value& Evaluator::get_var(std::string name) {
     }
 
     return get_var(unknownsym);
+}
+
+bool Evaluator::has_var(std::string name) {
+    auto search_scope = current_scope;
+
+    while(search_scope) {
+        auto it = search_scope->vars.find(name);
+        if(it == search_scope->vars.end())
+            search_scope = search_scope->parent_scope;
+        else
+            return true;
+    }
+
+    return false;
 }
 
 
@@ -443,11 +466,7 @@ Value Evaluator::eval(AstNodeT node) {
 
             if(std::strstr(node->children[i]->tag, "assign")) { // initialize variable
                 std::string name = node->children[i]->children[0]->contents;
-                std::cout << "btw" << std::endl;
-                Value val = eval(node->children[i]->children[2]);
-                std::cout << "blah blah " << val << std::endl;
-                new_var(name, val);
-                std::cout << "danach" << std::endl;
+                new_var(name, eval(node->children[i]->children[2]));
             }
 
             else {
@@ -461,14 +480,12 @@ Value Evaluator::eval(AstNodeT node) {
 
     else if(std::strstr(node->tag, "assign")) {
         std::string name = node->children[0]->contents;
-        Value val = eval(node->children[2]);
 
         Value var = get_var(name);
-        if(var->type == ValueTypeError && val->error == UnknownSym)
-            return new_error(UnknownSym);
+        Value val = eval(node->children[2]);
+        var = val;
 
-        set_var(name, val);
-        return val;
+        return var;
     }
 
     else if(std::strstr(node->tag, "cond"))
@@ -536,16 +553,18 @@ Value Evaluator::eval(AstNodeT node) {
     return new_error(NoValue);
 }
 
-Value Evaluator::eval_block(AstNodeT node, std::string new_scope) {
-    create_new_scope(new_scope);
+Value Evaluator::eval_block(AstNodeT node, std::string new_scope, bool create_scope) {
+    if(create_scope) create_new_scope(new_scope);
+
     for(int i = 1; i < node->children_num - 1; i++) {
         Value v = eval(node->children[i]);
         if(v->return_value) {
-            pop_scope();
+            if(create_scope) pop_scope();
             return v;
         }
     }
-    pop_scope();
+
+    if(create_scope) pop_scope();
 
     return new_error(NoValue);
 }
