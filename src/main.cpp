@@ -9,6 +9,7 @@ extern "C" {
 
 #include "val.hpp"
 #include "eval.hpp"
+#include "ast.hpp"
 
 #define forever while(1)
 std::string load_file(std::string path) {
@@ -61,38 +62,53 @@ int main(int argc, char *argv[]) {
             comp, gcomp, num, bl, op, body, str, id, 
             arg, args, noarg, func,
             expr, st, fd, var, lst, top, dbl, cmd);
+//
+//    Evaluator eval;
+//    eval.init(cmd, norm);
+//
+//    if(argc < 2) { /* run interactive mode */
+//        try {
+//
+//            forever {
+//                std::string input = readline("$>");
+//                add_history(input.c_str());
+//
+//                mpc_result_t res;
+//                if(mpc_parse("input", input.c_str(), cmd, &res)) {
+//                    mpc_ast_print(ast(res.output)); 
+//                    std::cout << eval.eval(ast(res.output)) << std::endl;
+//                    mpc_ast_delete(ast(res.output));
+//                }
+//                else {
+//                    mpc_err_print(res.error);
+//                    mpc_err_delete(res.error);
+//                }
+//            }
+//
+//        } catch (std::logic_error e) { /* user has pressed <C-d> => quit */
+//            std::cout << "\nGoodbye!" << std::endl; 
+//        }    
+//    }
+//
+//    else
+//        eval.eval_file(argv[1]);
+//
+//    eval.cleanup();
+    
+    std::string src = load_file(argv[1]);
 
-    Evaluator eval;
-    eval.init(cmd, norm);
-
-    if(argc < 2) { /* run interactive mode */
-        try {
-
-            forever {
-                std::string input = readline("$>");
-                add_history(input.c_str());
-
-                mpc_result_t res;
-                if(mpc_parse("input", input.c_str(), cmd, &res)) {
-                    mpc_ast_print(ast(res.output)); 
-                    std::cout << eval.eval(ast(res.output)) << std::endl;
-                    mpc_ast_delete(ast(res.output));
-                }
-                else {
-                    mpc_err_print(res.error);
-                    mpc_err_delete(res.error);
-                }
-            }
-
-        } catch (std::logic_error e) { /* user has pressed <C-d> => quit */
-            std::cout << "\nGoodbye!" << std::endl; 
-        }    
+    mpc_result_t res;
+    if(mpc_parse("input", src.c_str(), cmd, &res)) {
+        auto r = haxy::AstGenerator::parse_file((AstNodeT)(res.output));
+        haxy::AstWriter w;
+        w.write_tree(r);
     }
+    else {
+        mpc_err_print(res.error),
+        mpc_err_delete(res.error);
+    } 
 
-    else
-        eval.eval_file(argv[1]);
 
-    eval.cleanup();
     mpc_cleanup(9, elsee, elif, noarg, cond, num, lq, str,
             wh, op, id, assi, felif, arg, args, bl, func, norm, body,
             comp, gcomp, expr, var, lst, st, dbl, mlq, ret, fd, iff, top, cmd);

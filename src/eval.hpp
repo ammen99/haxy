@@ -11,6 +11,7 @@ extern "C" {
 #include <vector>
 #include <functional>
 #define ast(x) (mpc_ast_t*)(x)
+
 std::string load_file(std::string name);
 using AstNodeT = mpc_ast_t*;
 class Evaluator { 
@@ -31,10 +32,9 @@ class Evaluator {
 
     std::vector<mpc_ast_t*> loaded_asts;
 
-    void   new_var(std::string name, Value val);
-    void   set_var(std::string name, Value val);
-    Value& get_var(std::string name);
-    bool   has_var(std::string name);
+    void  new_var(std::string name, Value val);
+    void  set_var(std::string name, Value val);
+    const Value& get_var(std::string name);
 
     Func get_func(std::string name);
     void new_func(std::string name, AstNodeT node);

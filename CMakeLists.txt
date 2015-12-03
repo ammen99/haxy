@@ -3,6 +3,8 @@ cmake_minimum_required(VERSION 3.1.0)
 set(CMAKE_CXX_STANDARD 11)
 project(haxy)
 
+SET (CMAKE_C_COMPILER             "/usr/bin/clang")
+SET (CMAKE_CXX_COMPILER           "/usr/bin/clang++")
 
 # Find required packages
 find_package(PkgConfig)

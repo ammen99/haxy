@@ -68,7 +68,7 @@ void Evaluator::set_var(std::string name, Value val) {
     }
 }
 
-Value& Evaluator::get_var(std::string name) {
+const Value& Evaluator::get_var(std::string name) {
 
     auto search_scope = current_scope;
 
@@ -81,20 +81,6 @@ Value& Evaluator::get_var(std::string name) {
     }
 
     return get_var(unknownsym);
-}
-
-bool Evaluator::has_var(std::string name) {
-    auto search_scope = current_scope;
-
-    while(search_scope) {
-        auto it = search_scope->vars.find(name);
-        if(it == search_scope->vars.end())
-            search_scope = search_scope->parent_scope;
-        else
-            return true;
-    }
-
-    return false;
 }
 
 
@@ -466,7 +452,11 @@ Value Evaluator::eval(AstNodeT node) {
 
             if(std::strstr(node->children[i]->tag, "assign")) { // initialize variable
                 std::string name = node->children[i]->children[0]->contents;
-                new_var(name, eval(node->children[i]->children[2]));
+                std::cout << "btw" << std::endl;
+                Value val = eval(node->children[i]->children[2]);
+                std::cout << "blah blah " << val << std::endl;
+                new_var(name, val);
+                std::cout << "danach" << std::endl;
             }
 
             else {
@@ -480,12 +470,14 @@ Value Evaluator::eval(AstNodeT node) {
 
     else if(std::strstr(node->tag, "assign")) {
         std::string name = node->children[0]->contents;
+        Value val = eval(node->children[2]);
 
         Value var = get_var(name);
-        Value val = eval(node->children[2]);
-        var = val;
+        if(var->type == ValueTypeError && val->error == UnknownSym)
+            return new_error(UnknownSym);
 
-        return var;
+        set_var(name, val);
+        return val;
     }
 
     else if(std::strstr(node->tag, "cond"))
