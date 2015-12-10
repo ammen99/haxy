@@ -100,7 +100,7 @@ int main(int argc, char *argv[]) {
     mpc_result_t res;
     if(mpc_parse("input", src.c_str(), cmd, &res)) {
         auto r = haxy::AstGenerator::parse_file((AstNodeT)(res.output));
-        haxy::AstWriter w;
+        haxy::AstCppTranslator w;
         w.write_tree(r);
     }
     else {

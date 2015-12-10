@@ -1,6 +1,7 @@
 #include <vector>
 #include <memory>
 #include <fstream>
+#include <sstream>
 
 #include "eval.hpp"
 #include "mpc.h"
@@ -73,7 +74,7 @@ namespace haxy {
 
     struct _AstListQ : _AstExpr {
         std::string name;
-        AstNode index;
+        std::vector<AstNode> indices;
     };
     decl_shared_ptr(AstListQ);
 
@@ -177,4 +178,21 @@ namespace haxy {
         ~AstWriter() { if(!to_stdout) stream.close(); }
     };
 
+    class AstCppTranslator {
+        std::ostringstream mainstream, topstream;
+        bool toplevel = true;
+        bool write_mainstream = true;
+
+        void write(std::string str, int depth = 0);
+        void write(Value v, int depth = 0);
+        void write(AstNode node, int depth, bool endl);
+
+        std::string header = "#include <builtin.hpp>";
+
+        public:
+        AstCppTranslator() {
+        }
+
+        void write_tree(AstNode node);
+    };
 }

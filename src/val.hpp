@@ -22,7 +22,7 @@ enum ValueType {
 #define ValueTypeArithmetic (ValueTypeNumber|ValueTypeDbl)
 #define ValueTypeBoolArithm (ValueTypeNumber|ValueTypeBool)
 
-enum Error { ZeroDiv, BadOp, BadValue, UnknownSym, NoValue, ArgumentNumberMismatch };
+enum Error { ZeroDiv, BadOp, BadValue, UnknownSym, NoValue, ArgumentNumberMismatch, IndexingNonArray, ArraySubscriptNotAnInteger };
 
 struct _Value;
 using Value = ptr::shared_ptr<_Value>;
@@ -43,12 +43,16 @@ struct _Value {
     
     bool return_value = false;
 
+    bool to_bool();
+
     _Value();
     _Value(const _Value&  other);
     _Value(const _Value&& other);
     _Value operator = (const _Value&  other);
     _Value operator = (const _Value&& other);
     ~_Value();
+
+    Value& operator [] (Value index);
 };
 
 Value new_value(long x);
@@ -79,6 +83,7 @@ Value operator <  (const Value &a, const Value &b);
 
 Value times(const Value &a, const Value &b);
 
+void raise_error(Error e);
 
 using Args = std::vector<Value>;
 

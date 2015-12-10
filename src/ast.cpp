@@ -65,7 +65,9 @@ namespace haxy {
 
             node->tag = AstTagListQ;
             node->name = root->children[0]->contents;
-            node->index = generate(root->children[2]);
+
+            for(int i = 2; i < root->children_num; i+= 3) 
+                node->indices.push_back(generate(root->children[i]));
 
             return node;
         }
@@ -329,7 +331,10 @@ namespace haxy {
                 write(listq->name, 0);
                 out << "\n";
                 write("index = ", depth + 4);
-                write(listq->index, 0);
+                for(int i = 0; i < listq->indices.size(); i++)
+                    write(listq->indices[i], 0),
+                    out << " ";
+
                 break;
             }
 
@@ -475,6 +480,264 @@ namespace haxy {
         write(n, 0);
     }
 
-    /* end AstWriter */
+    /* begin AstWriter */
+
+#undef out
+#define out (!write_mainstream ? topstream : mainstream)
+//#define out (std::cout)
+   
+    void AstCppTranslator::write(std::string str, int depth) {
+        for(int i = 0; i < depth; i++) out << " ";
+        out << str;
+    }
+
+    void AstCppTranslator::write(Value v, int depth) {
+        for(int i = 0; i < depth; i++) out << " ";
+        switch(v->type) {
+            case ValueTypeError:
+                std::cerr << "Error while translating, exiting" << std::endl;
+                std::exit(-1);
+                break;
+
+            case ValueTypeNumber:
+                out << "new_value(" << v->long_val << ")";
+                break;
+
+            case ValueTypeDbl:
+                out << "new_dvalue(" << v->dbl << ")";
+                break;
+
+            case ValueTypeBool:
+                out << "new_bvalue(" << v->long_val << ")";
+                break;
+
+            case ValueTypeString:
+                out << "new_value(String{\"" << v->str << "\"})";
+                break;
+            
+            case ValueTypeList:
+                out << "new_value(List{";
+                for(int i = 0; i < v->lst.size(); i++) {
+                    write(v->lst[i]);
+                    if(i != v->lst.size() - 1) out << ", ";
+                }
+
+                out << "})";
+                break;
+        }
+    }
+
+    void AstCppTranslator::write(AstNode node, int depth, bool endl) {
+        switch(node->tag) {
+
+            if(toplevel) write_mainstream = true;
+
+            case AstTagValue:
+                write(convert<_AstValue>(node)->value, 0);
+                break;
+
+            case AstTagOperation: {
+                auto op = convert<_AstOperation>(node);
+                if(op->op == "**") {
+                    write("times(", depth); 
+                    write(op->left, 0, false);
+                    write(", ", 0);
+                    write(op->right, 0, false);
+                    write(")", 0);
+                }
+                else {
+                    write(op->left, depth, false);
+                    write(" " + op->op + " ", 0);
+                    write(op->right, 0, false);
+                }
+                break;                      
+            }
+
+            case AstTagVariable:
+                write(convert<_AstVariable>(node)->name, 0);
+                break;
+
+            case AstTagVariableAssignment: {
+                auto assign = convert<_AstVariableAssignment>(node);
+                write(assign->var_name + " = ", depth);
+                write(assign->value, 0, false);
+                break;
+            }
+
+            case AstTagList: {
+                write("new_value(List{", depth);
+                auto list = convert<_AstList>(node);
+                for(int i = 0; i < list->elems.size(); i++) {
+                    write(list->elems[i], depth + 4, false);
+                    if(i != list->elems.size() - 1) out << ", ";
+                };
+                out << "})";
+                break;
+            }
+
+            case AstTagListQ: {
+                auto listq = convert<_AstListQ>(node);
+                for(int i = 0; i < listq->indices.size(); i++)
+                    write("(*", depth);
+
+                write(listq->name, 0);
+                for(int i = 0; i < listq->indices.size(); i++)
+                    out << ")[",
+                    write(listq->indices[i], 0, false),
+                out << "]";
+                break;
+            }
+
+            case AstTagListAssignment: {
+                auto list = convert<_AstListAssignment>(node);
+                write(list->left_side, depth, false);
+                write(" = ", 0);
+                write(list->right_side, 0, false);
+                break;
+            }
+
+            case AstTagReturn: {
+                write("return ", depth);
+                write(convert<_AstReturn>(node)->expr, 0, false);
+                out << ";\n";
+                break;
+            }
+
+            // TODO: XXX: implement fold expressions 
+            case AstTagFoldExpression: {
+                write("foldexpr:\n", depth);                           
+                write("op = ", depth + 4);
+
+                auto expr = convert<_AstFoldExpr>(node);
+
+                write(expr->op, 0);
+                out << "\n";
+
+                for(int i = 0; i < expr->args.size(); i++)
+                    write(expr->args[i], depth + 4, false);
+                
+                break;
+            }
+
+            case AstTagFunctionCall: {
+                auto funcall = convert<_AstFunctionCall>(node);
+
+                write(funcall->name + "(", depth);
+                for(int i = 0; i < funcall->args.size(); i++) {
+                    write(funcall->args[i], 0, false);
+                    if(i != funcall->args.size() - 1) out << ", ";
+                }
+                write(")", 0);
+                break;                         
+            }
+
+
+            case AstTagConditional: {
+                auto cond = convert<_AstConditional>(node);                        
+
+                for(int i = 0; i < cond->children.size(); i++) {
+                    if(cond->children[i]->type == IfTypeIf) {
+                        write("if((*(", depth);
+                        write(cond->children[i]->expr, 0, false);
+                        out << ")).to_bool())";
+                        write(cond->children[i]->block, depth + 4, true);
+                    }
+
+                    if(cond->children[i]->type == IfTypeElif) {
+                        write("else if((*(", depth);
+                        write(cond->children[i]->expr, depth + 4, false);
+                        out << ")).to_bool())";
+                        write(cond->children[i]->block, depth + 4, true);                   
+                    }
+
+                    if(cond->children[i]->type == IfTypeElse) {
+                        write("else", depth);
+                        write(cond->children[i]->block, depth + 4, true);
+                    }
+                }
+
+                return;
+            }
+
+
+            case AstTagWhile: {
+                auto wh = convert<_AstWhile>(node);
+                write("while((*(", depth);
+                write(wh->condition, 0, false);
+                write(")).to_bool())", 0);
+                write(wh->action, depth + 4, false);
+                return;
+            }
+
+            case AstTagBlock: {
+                auto block = convert<_AstBlock>(node);
+                write("{\n", 0);
+                for(int i = 0; i < block->children.size(); i++) {
+                    write(block->children[i], depth, true);
+                }
+                write("}\n", depth - 4);
+            
+                return;
+            }
+
+            case AstTagFunctionDefinition: {
+                auto fun = convert<_AstFunctionDefinition>(node);
+
+                auto old_toplevel = toplevel;
+                if(toplevel) write_mainstream = false;
+                toplevel = false;
+
+                write("Value ", depth);                               
+                write(fun->name + "(", 0);
+
+                for(int i = 0; i < fun->args.size(); i++) {
+                    write("Value " + fun->args[i], 0);
+                    if(i != fun->args.size() - 1) write(", ", 0);
+                }
+
+                out << ") ";
+                write(fun->action, depth + 4, true);
+
+                toplevel = old_toplevel;
+                if(old_toplevel) write_mainstream = true;
+                return;
+            }
+
+            case AstTagVariableDeclaration: {
+
+                auto old_toplevel = toplevel;
+                if(toplevel) write_mainstream = false;
+                toplevel = false;
+
+                write("Value ", depth);
+
+                auto decl = convert<_AstVariableDeclaration>(node);
+                for(int i = 0; i < decl->children.size(); i++) {
+                    write(decl->children[i], 0, false);
+                    if(i != decl->children.size() - 1)
+                        out << ", ";
+                }
+
+                out << ";\n";
+                toplevel = old_toplevel;
+                if(old_toplevel) write_mainstream = true;
+
+                return;
+            }
+
+            case AstTagExpr: {
+                break;
+            }
+        }
+
+        if(endl) out << ";\n";
+    }
+
+    void AstCppTranslator::write_tree(AstNode n) {
+        write(n, 0, true);
+        std::cout << header << std::endl;
+        std::cout << topstream.str() << std::endl;
+        std::cout << "int main() " << mainstream.str() << std::endl;
+    }    /* end AstWriter */
 }
 

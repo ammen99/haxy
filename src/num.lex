@@ -26,5 +26,5 @@ body     : '{' <state>* '}' ;
 fundef   : "def" <func> <body> ;
 toplevel : <fundef> | <state> | <comp> | <list> | <expr> ;
 lispy    : /^/ <toplevel>* /$/ ;
-listq    : <ident> '[' <expr> ']' ;
+listq    : <ident> ('[' <expr> ']')+ ;
 return   : "return" <expr> ';' ;

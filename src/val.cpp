@@ -2,6 +2,15 @@
 #include <cstring>
 #include <new>
 
+namespace ptr {
+    memory_pool mempool;
+}
+
+/* TODO: exit when raising an error */
+void raise_error(Error e) {
+    std::cout << "Critical error!" << std::endl;
+}
+
 /* constructors/destructors/assignment operators */
 /* satisfying the rule of five */
 
@@ -57,11 +66,18 @@ _Value::_Value(const _Value &&other) {
 }
 
 _Value::~_Value() {
-    if(type == ValueTypeList)
-        lst.~vector();
+    switch(type) {
+        case ValueTypeList:
+            lst.~vector();
+            break;
 
-    if(type == ValueTypeString)
-        str.~basic_string();
+        case ValueTypeString:
+            str.~basic_string();
+            break;
+
+        default:
+            break;
+    }
 }
 
 _Value _Value::operator=(const _Value &other) {
@@ -117,6 +133,22 @@ _Value _Value::operator=(const _Value &&other) {
     return *this;
 }
 
+Value no_value = new_error(NoValue);
+
+Value& _Value::operator[] (Value index) {
+    if(index->type != ValueTypeNumber)
+        raise_error(ArraySubscriptNotAnInteger);
+
+    switch(type) {
+        case ValueTypeList:
+            return lst[index->long_val];
+        case ValueTypeString:
+        default:
+            raise_error(IndexingNonArray);
+            return no_value;
+    }
+}
+
 Value new_value(long x) {
     Value v = ptr::shared_ptr<_Value>();;
     v->type = ValueTypeNumber;
@@ -167,61 +199,71 @@ Value new_error(Error e) {
 
 namespace {
     std::string getStringError(Error e) {
-        if(e == ZeroDiv)
-            return "ZeroDiv"; 
+        switch(e) {
+            case ZeroDiv:
+                return "ZeroDiv"; 
 
-        if(e == BadOp)
-            return "BadOp";
+            case BadOp:
+                return "BadOp";
 
-        if(e == BadValue)
-            return "BadValue";
-        
-        if(e == UnknownSym)
-            return "Undefined variable/function";
+            case BadValue:
+                return "BadValue";
 
-        if(e == NoValue)
-            return "No Value";
+            case UnknownSym:
+                return "Undefined variable/function";
 
-        if(e == ArgumentNumberMismatch)
-            return "Too few/much arguments to call function";
+            case NoValue:
+                return "No Value";
 
-        return "Unknown error";
+            case ArgumentNumberMismatch:
+                return "Too few/much arguments to call function";
+
+            default:
+                return "Unknown error";
+        }
     }
 }
 
 std::ostream& operator << (std::ostream &stream, const Value &v) {
 
-    if(v->type == ValueTypeError && v->error != NoValue)
-        stream << "Error: " << getStringError(v->error); 
+    switch(v->type) {
+        case ValueTypeNumber:
+            stream << v->long_val;
+            break;
+        case ValueTypeDbl:
+            stream << v->dbl;
+            break;
+        case ValueTypeError:
+            if(v->error != NoValue)
+                stream << "Error: " << getStringError(v->error); 
 
-    else if(v->type == ValueTypeError) { }
-    else if(v->type == ValueTypeList) {
-        stream << "[";
+            break;
 
-        auto size = v->lst.size();
-        for(size_t i = 0; i < size; ++i) 
-            if(i < size - 1)
-                stream << v->lst[i] << ", ";
+        case ValueTypeList: {
+            stream << "[";
+
+            auto size = v->lst.size();
+            for(size_t i = 0; i < size; ++i) 
+                if(i < size - 1)
+                    stream << v->lst[i] << ", ";
+                else
+                    stream << v->lst[i];
+
+            stream << "]";
+            break;
+        }
+
+        case ValueTypeBool:
+            if(v->long_val)
+                stream << "true";
             else
-                stream << v->lst[i];
+                stream << "false";
+            break;
 
-        stream << "]";
-    }
-    else if(v->type == ValueTypeBool) {
-        if(v->long_val)
-            stream << "true";
-        else
-            stream << "false";
+        case ValueTypeString:
+            stream << "\"" << v->str << "\"";
     }
 
-    else if(v->type == ValueTypeString)
-        stream << "\"" << v->str << "\"";
-
-    else if(v->type == ValueTypeDbl)
-        stream << v->dbl;
-    else
-        stream << v->long_val;
-    
     return stream;
 }
 
@@ -310,8 +352,9 @@ Value operator * (const Value &a, const Value &b) {
 Value times(const Value &a, const Value &b) {
     if(b->type == ValueTypeNumber) {
         Value v = new_value(List{}); 
-        for(int i = 0; i < b->long_val; i++)
-            v->lst.push_back(a);
+        auto len = b->long_val;
+        for(int i = 0; i < len; i++)
+            (*v).lst.push_back(a);
 
         return v;
     }
@@ -356,46 +399,41 @@ Value operator || (const Value &a, const Value &b) {
 }
 
 #define compare_op_guard(a, b, op) \
-    if((a->type & ValueTypeArithmetic) && \
-        (b->type & ValueTypeArithmetic)) { \
-          \
-        if(a->type == ValueTypeDbl && b->type == ValueTypeDbl) \
-            return new_bvalue(a->dbl op b->dbl); \
-        else if(a->type == ValueTypeDbl) \
-            return new_bvalue(a->dbl op double(b->long_val)); \
-        else if(b->type == ValueTypeDbl) \
-            return new_bvalue(double(a->long_val) op b->dbl); \
-        else \
+    switch((a->type << 3) | b->type) { \
+        case 9: \
             return new_bvalue(a->long_val op b->long_val); \
-    } else if(a->type == ValueTypeString && b->type == ValueTypeString) \
-        return new_bvalue(a->str op b->str);
+        case 10: \
+            return new_bvalue(a->long_val op b->dbl); \
+        case 17: \
+            return new_bvalue(a->dbl op b->long_val); \
+        case 18: \
+            return new_bvalue(a->dbl op b->dbl); \
+        case 72: \
+            return new_bvalue(a->str op b->str); \
+        default: \
+            return new_error(BadOp); \
+    }
 
 
 // TODO: implement comparison for lists and strings 
 /* comparison operator */
 Value operator == (const Value &a, const Value &b) {
     compare_op_guard(a, b, ==)
-    else return new_error(BadOp);
 }
 Value operator >= (const Value &a, const Value &b) {
     compare_op_guard(a, b, >=)
-    else return new_error(BadOp);
 }
 Value operator <= (const Value &a, const Value &b) {
     compare_op_guard(a, b, <=)
-    else return new_error(BadOp);
 }
 Value operator != (const Value &a, const Value &b) {
     compare_op_guard(a, b, !=)
-    else return new_error(BadOp);
 }
 Value operator > (const Value &a, const Value &b) {
     compare_op_guard(a, b, >)
-    else return new_error(BadOp);
 }
 Value operator < (const Value &a, const Value &b) {
     compare_op_guard(a, b, <)
-    else return new_error(BadOp);
 }
 
 bool is_computable(char * str) {
@@ -406,4 +444,24 @@ bool is_computable(char * str) {
     if(std::strstr(str, "bool")) return true;
 
     return false;
+}
+
+bool _Value::to_bool() {
+    switch(type) {
+        case ValueTypeNumber:
+        case ValueTypeBool:
+            return long_val;
+        
+        case ValueTypeDbl:
+            return abs(dbl) > 1e-16;
+        
+        case ValueTypeString:
+            return !str.size();
+        
+        case ValueTypeList:
+            return !lst.size();
+
+        case ValueTypeError:
+            return false;
+    }
 }
