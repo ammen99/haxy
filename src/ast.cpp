@@ -200,7 +200,7 @@ namespace haxy {
         std::vector<AstExpr> v; 
 
         if(std::strstr(root->tag, "noarg")) {}
-        if(!std::strstr(root->tag, "args") || root->children_num == 0)
+        else if(!std::strstr(root->tag, "args") || root->children_num == 0)
             v = {convert<_AstExpr>(generate(root))};
         else 
             for(int i = 0; i < root->children_num; i += 2)
@@ -577,14 +577,12 @@ namespace haxy {
 
             case AstTagListQ: {
                 auto listq = convert<_AstListQ>(node);
-                for(int i = 0; i < listq->indices.size(); i++)
-                    write("(*", depth);
 
                 write(listq->name, 0);
                 for(int i = 0; i < listq->indices.size(); i++)
-                    out << ")[",
+                    out << "[",
                     write(listq->indices[i], 0, false),
-                out << "]";
+                    out << "]";
                 break;
             }
 
@@ -637,16 +635,16 @@ namespace haxy {
 
                 for(int i = 0; i < cond->children.size(); i++) {
                     if(cond->children[i]->type == IfTypeIf) {
-                        write("if((*(", depth);
+                        write("if((", depth);
                         write(cond->children[i]->expr, 0, false);
-                        out << ")).to_bool())";
+                        out << ").to_bool())";
                         write(cond->children[i]->block, depth + 4, true);
                     }
 
                     if(cond->children[i]->type == IfTypeElif) {
-                        write("else if((*(", depth);
+                        write("else if((", depth);
                         write(cond->children[i]->expr, depth + 4, false);
-                        out << ")).to_bool())";
+                        out << ").to_bool())";
                         write(cond->children[i]->block, depth + 4, true);                   
                     }
 
@@ -662,9 +660,9 @@ namespace haxy {
 
             case AstTagWhile: {
                 auto wh = convert<_AstWhile>(node);
-                write("while((*(", depth);
+                write("while((", depth);
                 write(wh->condition, 0, false);
-                write(")).to_bool())", 0);
+                write(").to_bool())", 0);
                 write(wh->action, depth + 4, false);
                 return;
             }

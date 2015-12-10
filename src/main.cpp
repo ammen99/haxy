@@ -57,7 +57,7 @@ int main(int argc, char *argv[]) {
     mpc_parser_t* lq   = mpc_new("listq");
     mpc_parser_t* mlq  = mpc_new("modlist");
 
-    auto lex = load_file("/home/ilex/work/lispy/src/num.lex");
+    auto lex = load_file("/home/ilex/haxy/src/num.lex");
     mpca_lang(MPCA_LANG_DEFAULT, lex.c_str(), mlq, lq, ret, wh, assi, felif, elif, elsee, cond, iff, norm,
             comp, gcomp, num, bl, op, body, str, id, 
             arg, args, noarg, func,
