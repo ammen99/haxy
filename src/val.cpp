@@ -36,6 +36,9 @@ _Value::_Value(const _Value &other) {
         case ValueTypeString:
             new(&str) std::string(other.str);
             break;
+        case ValueTypeScope:
+            new(&sc) Scope(other.sc);
+            break;
         case ValueTypeError:
             error = other.error;
             break;
@@ -59,6 +62,9 @@ _Value::_Value(const _Value &&other) {
         case ValueTypeString:
             new(&str) String(std::move(other.str));
             break;
+        case ValueTypeScope:
+            new(&sc) Scope(std::move(other.sc));
+            break;
         case ValueTypeError:
             error = other.error;
             break;
@@ -75,6 +81,9 @@ _Value::~_Value() {
             str.~basic_string();
             break;
 
+        case ValueTypeScope:
+            sc.~Scope();
+
         default:
             break;
     }
@@ -84,6 +93,7 @@ _Value _Value::operator=(const _Value &other) {
     if(this != &other) {
         type = other.type;
         return_value = other.return_value;
+
         switch(type) {
             case ValueTypeNumber:
             case ValueTypeBool:
@@ -97,6 +107,10 @@ _Value _Value::operator=(const _Value &other) {
                 break;
             case ValueTypeString:
                 new(&str) String(other.str);
+                break;
+            
+            case ValueTypeScope:
+                new(&str) Scope(other.sc);
                 break;
             case ValueTypeError:
                 error = other.error;
@@ -123,6 +137,10 @@ _Value _Value::operator=(const _Value &&other) {
                 break;
             case ValueTypeString:
                 new(&str) String(std::move(other.str));
+                break;
+
+            case ValueTypeScope:
+                new(&sc) Scope(std::move(other.sc));
                 break;
             case ValueTypeError:
                 error = other.error;
@@ -262,6 +280,17 @@ std::ostream& operator << (std::ostream &stream, const Value &v) {
 
         case ValueTypeString:
             stream << "\"" << v->str << "\"";
+            break;
+
+        case ValueTypeScope:
+            stream << "scope " << v->sc.name << "{";
+            for(auto x : v->sc.vars)
+                stream << x.first << " = " << x.second << ", ";
+            for(auto x : v->sc.funcs)
+                stream << x.first << "(), ";
+
+            stream << "}";
+            break;
     }
 
     return stream;
@@ -436,21 +465,14 @@ Value operator < (const Value &a, const Value &b) {
     compare_op_guard(a, b, <)
 }
 
-bool is_computable(char * str) {
-    if(std::strstr(str, "expr")) return true;
-    if(std::strstr(str, "func")) return true;
-    if(std::strstr(str, "var")) return true;
-    if(std::strstr(str, "number")) return true;
-    if(std::strstr(str, "bool")) return true;
-
-    return false;
-}
-
 bool _Value::to_bool() {
     switch(type) {
         case ValueTypeNumber:
         case ValueTypeBool:
             return long_val;
+
+        case ValueTypeScope:
+            return true;
         
         case ValueTypeDbl:
             return abs(dbl) > 1e-16;

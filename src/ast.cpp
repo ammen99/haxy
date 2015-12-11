@@ -70,33 +70,8 @@ namespace haxy {
             return node;
         }
 
-        else if(std::strstr(root->tag, "var")) {
-            auto node = std::make_shared<_AstVariableDeclaration>();
-            node->tag = AstTagVariableDeclaration;
-
-            for(int i = 1; i < root->children_num; i += 2) {
-
-                if(std::strstr(root->children[i]->tag, "assign")) { // initialize variable
-                    auto child = std::make_shared<_AstVariableAssignment>();
-
-                    child->tag = AstTagVariableAssignment;
-                    child->var_name = root->children[i]->children[0]->contents;
-                    child->value = generate(root->children[i]->children[2]);
-
-                    node->children.push_back(child);
-                }
-
-                else {
-                    auto child = std::make_shared<_AstVariable>();
-                    child->tag = AstTagVariable;
-                    child->name = root->children[i]->contents;
-
-                    node->children.push_back(child);
-                }
-            }
-
-            return node;
-        }
+        else if(std::strstr(root->tag, "var"))
+            return generate_vardecl(root);
 
         else if(std::strstr(root->tag, "assign")) {
             auto node = std::make_shared<_AstVariableAssignment>();
@@ -165,6 +140,22 @@ namespace haxy {
         else if(std::strstr(root->tag, "state"))
             return generate(root->children[0]);
 
+        else if(std::strstr(root->tag, "class")) {
+            auto node = std::make_shared<_AstClass>(); 
+            node->tag = AstTagClass;
+            node->name = root->children[1]->contents;
+
+            /* children are either variable declarations or function definitions */
+            for(int i = 3; i < root->children_num - 1; i++) {
+                if(std::strstr(root->children[i]->tag, "var"))
+                    node->vars.push_back(generate_vardecl(root->children[i]));
+                else
+                    node->funcs.push_back(generate_func_def(root->children[i]));
+            }
+
+            return node;
+        }
+
         auto node = std::make_shared<_AstValue>();
         node->tag = AstTagValue;
         node->value = new_error(NoValue);
@@ -216,6 +207,36 @@ namespace haxy {
         return node;
     }
 
+
+    AstVariableDeclaration AstGenerator::generate_vardecl(AstNodeT root) {
+        auto node = std::make_shared<_AstVariableDeclaration>();
+        node->tag = AstTagVariableDeclaration;
+
+        for(int i = 1; i < root->children_num; i += 2) {
+
+            if(std::strstr(root->children[i]->tag, "assign")) { // initialize variable
+                auto child = std::make_shared<_AstVariableAssignment>();
+
+                child->tag = AstTagVariableAssignment;
+                child->var_name = root->children[i]->children[0]->contents;
+                child->value = generate(root->children[i]->children[2]);
+
+                node->children.push_back(child);
+            }
+
+            else {
+                auto child = std::make_shared<_AstVariable>();
+                child->tag = AstTagVariable;
+                child->name = root->children[i]->contents;
+
+                node->children.push_back(child);
+            }
+        }
+
+        return node;
+
+    }
+
     AstNode AstGenerator::generate_if(AstNodeT root) {
         auto node = std::make_shared<_AstConditional>();         
         node->tag = AstTagConditional;
@@ -254,7 +275,7 @@ namespace haxy {
         return node;
     }
 
-    AstNode AstGenerator::generate_func_def(AstNodeT root) {
+    AstFunctionDefinition AstGenerator::generate_func_def(AstNodeT root) {
         auto node = std::make_shared<_AstFunctionDefinition> ();
         node->tag = AstTagFunctionDefinition;
         node->name = root->children[1]->children[0]->contents;
@@ -469,6 +490,19 @@ namespace haxy {
                 break;                      
             }
 
+            case AstTagClass: {
+                auto cl = convert<_AstClass>(node);
+
+                write("class:\n", depth);  
+                write("name = " + cl->name + "\n", depth + 4);
+                for(auto x : cl->vars)
+                    write(x, depth + 4);
+                for(auto x : cl->funcs)
+                    write(x, depth + 4);
+
+                break;
+            }
+
             case AstTagExpr: {
                 break;
             }
@@ -513,7 +547,7 @@ namespace haxy {
             case ValueTypeString:
                 out << "new_value(String{\"" << v->str << "\"})";
                 break;
-            
+
             case ValueTypeList:
                 out << "new_value(List{";
                 for(int i = 0; i < v->lst.size(); i++) {
@@ -522,6 +556,9 @@ namespace haxy {
                 }
 
                 out << "})";
+                break;
+
+            default:
                 break;
         }
     }
@@ -722,7 +759,7 @@ namespace haxy {
                 return;
             }
 
-            case AstTagExpr: {
+            default: {
                 break;
             }
         }

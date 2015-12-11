@@ -96,6 +96,28 @@ void AstEvaluator::new_func(std::string name, Func f) {
     }, f.eval_args_by_identifier};
 }
 
+void AstEvaluator::create_constructor(AstNode nnode) {
+    auto cl = convert<_AstClass>(nnode);
+
+    new_func(cl->name, {0, 0, [=] (Args a) {
+                Value v;
+                v->type = ValueTypeScope;
+                new(&v->sc) Scope;
+
+                v->sc.parent_scope = current_scope;
+                current_scope = &v->sc;
+
+                for(auto fun : cl->funcs)
+                    new_func(fun);
+                
+                for(auto var : cl->vars)
+                    eval_vardecl(var);
+
+                current_scope = current_scope->parent_scope;
+                return v;
+            }});
+}
+
 Value AstEvaluator::call_func(AstFunctionDefinition node, Args a) {
     create_new_scope(node->name + std::string("()"));
 
@@ -390,6 +412,28 @@ Value AstEvaluator::eval_while(AstNode nnode) {
     return new_error(NoValue);
 }
 
+Value AstEvaluator::eval_vardecl(AstVariableDeclaration node) {
+    for(int i = 0; i < node->children.size(); i++) {
+        switch(node->children[i]->tag) {
+            case AstTagVariableAssignment: {
+                auto var = convert<_AstVariableAssignment>(node->children[i]);
+                Value val = eval(var->value);
+                new_var(var->var_name, val);
+                break;
+            }
+
+            case AstTagVariable:
+                new_var(convert<_AstVariable>(node->children[i])->name, new_error(NoValue));
+                break;
+
+            default:
+                break;
+        }
+    }
+
+    return new_error(NoValue);
+}
+
 
 Value AstEvaluator::eval(AstNode node) {
 
@@ -429,30 +473,8 @@ Value AstEvaluator::eval(AstNode node) {
             return val;
         }
 
-        case AstTagVariableDeclaration: {
-            auto tmp = convert<_AstVariableDeclaration>(node);
-
-            for(int i = 0; i < tmp->children.size(); i++) {
-
-                switch(tmp->children[i]->tag) {
-                    case AstTagVariableAssignment: {
-                            auto var = convert<_AstVariableAssignment>(tmp->children[i]);
-                            Value val = eval(var->value);
-                            new_var(var->var_name, val);
-                            break;
-                    }
-
-                    case AstTagVariable:
-                        new_var(convert<_AstVariable>(tmp->children[i])->name, new_error(NoValue));
-                        break;
-
-                    default:
-                        break;
-                }
-            }
-
-            return new_error(NoValue);
-        }
+        case AstTagVariableDeclaration:
+            return eval_vardecl(convert<_AstVariableDeclaration>(node));
 
         case AstTagListQ: {
             auto listq = convert<_AstListQ>(node);                  
@@ -504,6 +526,10 @@ Value AstEvaluator::eval(AstNode node) {
         }
         case AstTagBlock:
             return eval_block(convert<_AstBlock>(node), donotcreatescope, false);
+
+        case AstTagClass:
+            create_constructor(node);
+            break;
 
         default:
             std::cout << "Hit eval(AstTagBlock/Expr). This means bug!" << std::endl;

@@ -18,8 +18,7 @@ using AstNodeT = mpc_ast_t*;
 
 namespace haxy {
         
-        
-        enum AstTag {
+    enum AstTag {
         AstTagValue    = 1, //
         AstTagVariable = 2, //
         AstTagList     = 3, //
@@ -36,6 +35,7 @@ namespace haxy {
         AstTagFunctionCall        = 14, //
         AstTagConditional         = 15, //
         AstTagOperation           = 16, //
+        AstTagClass               = 17,
     };
 
     struct _AstNode {
@@ -123,6 +123,12 @@ namespace haxy {
     };
     decl_shared_ptr(AstFunctionDefinition);
 
+    struct _AstClass : _AstNode {
+        std::string name;
+        std::vector<AstVariableDeclaration> vars;
+        std::vector<AstFunctionDefinition> funcs;
+    };
+
     enum IfType {
         IfTypeIf   = 1,
         IfTypeElif = 2,
@@ -153,11 +159,14 @@ namespace haxy {
 
         static std::vector<AstNode> parse_args(AstNodeT);          //
 
-        static AstNode generate_while(AstNodeT);      //
-        static AstNode generate_if(AstNodeT);         //
+        static AstNode  generate_while(AstNodeT);      //
+        static AstNode  generate_if(AstNodeT);         //
         static AstBlock generate_block(AstNodeT);      //
-        static AstNode generate_list(AstNodeT);       //
-        static AstNode generate_func_def (AstNodeT);  //
+        static AstNode  generate_list(AstNodeT);       //
+
+        static AstVariableDeclaration generate_vardecl (AstNodeT);
+        static AstFunctionDefinition  generate_func_def(AstNodeT);  //
+
         static AstNode generate_func_call(AstNodeT);  //
         static AstNode generate_comp(AstNodeT);       //
         static AstNode generate(AstNodeT);            //

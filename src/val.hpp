@@ -8,6 +8,7 @@
 #include <memory>
 #include <vector>
 #include <list>
+#include <unordered_map>
 
 #include "shared_ptr.hpp"
 
@@ -17,7 +18,8 @@ enum ValueType {
     ValueTypeString = 1 << 2,
     ValueTypeList   = 1 << 3,
     ValueTypeBool   = 1 << 4,
-    ValueTypeError  = 1 << 5 };
+    ValueTypeError  = 1 << 5,
+    ValueTypeScope  = 1 << 6 };
 
 #define ValueTypeArithmetic (ValueTypeNumber|ValueTypeDbl)
 #define ValueTypeBoolArithm (ValueTypeNumber|ValueTypeBool)
@@ -29,6 +31,25 @@ using Value = ptr::shared_ptr<_Value>;
 
 using List = std::vector<Value>;
 using String = std::string;
+using Args = std::vector<Value>;
+
+struct Func {
+    size_t min_arg;
+    size_t max_arg;
+
+    std::function<Value(Args)> call;
+
+    bool eval_args_by_identifier;
+};
+
+
+struct Scope {
+    std::unordered_map<std::string, Value> vars;
+    std::unordered_map<std::string, Func> funcs;
+
+    std::string name;
+    Scope *parent_scope = nullptr;
+};
 
 struct _Value {
     ValueType type;
@@ -39,6 +60,7 @@ struct _Value {
         double dbl;
         List lst;
         String str;
+        Scope sc;
     };
     
     bool return_value = false;
@@ -84,19 +106,5 @@ Value operator <  (const Value &a, const Value &b);
 Value times(const Value &a, const Value &b);
 
 void raise_error(Error e);
-
-using Args = std::vector<Value>;
-
-struct Func {
-    size_t min_arg;
-    size_t max_arg;
-
-    std::function<Value(Args)> call;
-
-    bool eval_args_by_identifier;
-};
-
-bool is_computable(char *str);
-
 
 #endif /* end of include guard: VAL_HPP */

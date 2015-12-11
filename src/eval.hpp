@@ -4,7 +4,6 @@ extern "C" {
 #include "mpc.h"
 }
 
-#include <unordered_map>
 #include <string>
 #include <cstring>
 #include <vector>
@@ -16,29 +15,18 @@ extern "C" {
 namespace haxy {
 
 class AstEvaluator { 
-    struct Scope {
-        //static std::unordered_map<std::string, Value> vars_predefined_empty;
-        //static std::unordered_map<std::string, Func> funcs_predefined_empty;
-
-        std::unordered_map<std::string, Value> vars;
-        std::unordered_map<std::string, Func> funcs;
-
-        //Scope();
-
-        std::string name;
-        Scope *parent_scope = nullptr;
-    } *current_scope = nullptr;
+    Scope *current_scope = nullptr;
 
     mpc_parser_t *parser, *expr_parser;
-
-    //std::vector<mpc_ast_t*> loaded_asts;
 
     void  new_var(std::string name, Value val);
     void  set_var(std::string name, Value val);
     Value get_var(std::string name);
 
     Func get_func(std::string name);
+
     void new_func(AstNode node);
+    void create_constructor(AstNode node);
     void new_func(std::string name, Func f);
 
 
@@ -62,6 +50,7 @@ class AstEvaluator {
      * and can introduce a new scope */
     Value eval_block(AstBlock node, std::string new_scope = "__unnamed__", bool create = true);
 
+    Value eval_vardecl(AstVariableDeclaration node);
     Value eval_if(AstNode node);
     Value eval_while(AstNode node);
 
