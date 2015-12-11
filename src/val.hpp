@@ -35,7 +35,7 @@ struct _Value {
 
     union {
         Error error;
-        long long_val;
+        long long long_val;
         double dbl;
         List lst;
         String str;
@@ -55,7 +55,7 @@ struct _Value {
     Value& operator [] (Value index);
 };
 
-Value new_value(long x);
+Value new_value(long long x);
 Value new_value(List l);
 Value new_value(String str);
 

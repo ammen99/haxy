@@ -149,7 +149,7 @@ Value& _Value::operator[] (Value index) {
     }
 }
 
-Value new_value(long x) {
+Value new_value(long long x) {
     Value v = ptr::shared_ptr<_Value>();;
     v->type = ValueTypeNumber;
     v->long_val = x;

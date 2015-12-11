@@ -14,14 +14,15 @@ template<class... Args> void print(Value v, Args ... args) {
 /* TODO: exit when raising an error */
 void raise_error(Error e) {
     std::cout << "Critical error!" << std::endl;
+    std::exit(-1);
 }
 
 /* constructors/destructors/assignment operators */
 /* satisfying the rule of five */
 
 Value::Value() {
-    type = ValueTypeError;
-    error = NoValue;
+    //type = ValueTypeError;
+    //error = NoValue;
 }
 
 Value::Value(const Value &other) {
@@ -355,6 +356,7 @@ Value operator * (const Value &a, const Value &b) {
 }
 
 Value times(const Value &a, const Value &b) {
+
     if(b.type == ValueTypeNumber) {
         Value v = new_value(List{}); 
         auto len = b.long_val;

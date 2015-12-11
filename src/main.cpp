@@ -56,52 +56,29 @@ int main(int argc, char *argv[]) {
     mpc_parser_t* ret  = mpc_new("return");
     mpc_parser_t* lq   = mpc_new("listq");
     mpc_parser_t* mlq  = mpc_new("modlist");
+    mpc_parser_t* 
 
-    auto lex = load_file("/home/ilex/haxy/src/num.lex");
+    auto lex = load_file("/home/ilex/work/lispy/src/num.lex");
     mpca_lang(MPCA_LANG_DEFAULT, lex.c_str(), mlq, lq, ret, wh, assi, felif, elif, elsee, cond, iff, norm,
             comp, gcomp, num, bl, op, body, str, id, 
             arg, args, noarg, func,
             expr, st, fd, var, lst, top, dbl, cmd);
-//
-//    Evaluator eval;
-//    eval.init(cmd, norm);
-//
-//    if(argc < 2) { /* run interactive mode */
-//        try {
-//
-//            forever {
-//                std::string input = readline("$>");
-//                add_history(input.c_str());
-//
-//                mpc_result_t res;
-//                if(mpc_parse("input", input.c_str(), cmd, &res)) {
-//                    mpc_ast_print(ast(res.output)); 
-//                    std::cout << eval.eval(ast(res.output)) << std::endl;
-//                    mpc_ast_delete(ast(res.output));
-//                }
-//                else {
-//                    mpc_err_print(res.error);
-//                    mpc_err_delete(res.error);
-//                }
-//            }
-//
-//        } catch (std::logic_error e) { /* user has pressed <C-d> => quit */
-//            std::cout << "\nGoodbye!" << std::endl; 
-//        }    
-//    }
-//
-//    else
-//        eval.eval_file(argv[1]);
-//
-//    eval.cleanup();
+
+    haxy::AstEvaluator eval;
+    eval.init(cmd, norm);
     
     std::string src = load_file(argv[1]);
 
     mpc_result_t res;
     if(mpc_parse("input", src.c_str(), cmd, &res)) {
+        mpc_ast_print(ast(res.output));
+
         auto r = haxy::AstGenerator::parse_file((AstNodeT)(res.output));
-        haxy::AstCppTranslator w;
+
+        haxy::AstWriter w;
         w.write_tree(r);
+
+        eval.eval(r);
     }
     else {
         mpc_err_print(res.error),

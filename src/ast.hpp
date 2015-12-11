@@ -1,16 +1,25 @@
+#ifndef AST_HPP
+#define AST_HPP
+
 #include <vector>
 #include <memory>
 #include <fstream>
 #include <sstream>
+#include <cstring>
 
-#include "eval.hpp"
+#include "val.hpp"
 #include "mpc.h"
 
+#define ast(x) (mpc_ast_t*)(x)
 #define decl_shared_ptr(name) using name = std::shared_ptr< _ ## name>
+std::string load_file(std::string name);
+using AstNodeT = mpc_ast_t*;
+
 
 namespace haxy {
-
-    enum AstTag {
+        
+        
+        enum AstTag {
         AstTagValue    = 1, //
         AstTagVariable = 2, //
         AstTagList     = 3, //
@@ -34,9 +43,7 @@ namespace haxy {
     };
     decl_shared_ptr(AstNode);
 
-    struct _AstExpr : _AstNode {
-        bool habe_ich_keine_zeit = false;
-    };
+    struct _AstExpr : _AstNode {};
     decl_shared_ptr(AstExpr);
 
     struct _AstBlock : _AstNode {
@@ -57,18 +64,18 @@ namespace haxy {
 
     struct _AstFoldExpr : _AstExpr {
         std::string op; 
-        std::vector<AstExpr> args;
+        std::vector<AstNode> args;
     };
-    decl_shared_ptr(AstExpr);
+    decl_shared_ptr(AstFoldExpr);
 
     struct _AstFunctionCall : _AstExpr {
         std::string name;
-        std::vector<AstExpr> args;
+        std::vector<AstNode> args;
     };
     decl_shared_ptr(AstFunctionCall);
 
     struct _AstList : _AstExpr {
-        std::vector<AstExpr> elems; 
+        std::vector<AstNode> elems; 
     };
     decl_shared_ptr(AstList);
 
@@ -140,13 +147,11 @@ namespace haxy {
     };
     decl_shared_ptr(AstWhile);
 
-    using Arg = std::vector<AstExpr>;
-
 
     class AstGenerator {
         AstGenerator() = delete;
 
-        static Arg     parse_args(AstNodeT);          //
+        static std::vector<AstNode> parse_args(AstNodeT);          //
 
         static AstNode generate_while(AstNodeT);      //
         static AstNode generate_if(AstNodeT);         //
@@ -160,6 +165,8 @@ namespace haxy {
         public:
         static AstNode parse_file(AstNodeT toplevel);
     };
+
+    template<class T> std::shared_ptr<T> convert(AstNode node);
 
     class AstWriter {
         std::fstream stream;
@@ -196,3 +203,5 @@ namespace haxy {
         void write_tree(AstNode node);
     };
 }
+
+#endif

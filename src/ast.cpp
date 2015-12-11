@@ -7,11 +7,9 @@
 
 
 namespace haxy {
-    namespace {
-        template<class T> 
-        inline std::shared_ptr<T> convert(AstNode node) {
-            return std::static_pointer_cast<T>(node);
-        }
+    template<class T> 
+    inline std::shared_ptr<T> convert(AstNode node) {
+        return std::static_pointer_cast<T>(node);
     }
 
     AstNode AstGenerator::generate (AstNodeT root) {
@@ -196,8 +194,8 @@ namespace haxy {
         return node;
     }
 
-    Arg AstGenerator::parse_args(AstNodeT root) {
-        std::vector<AstExpr> v; 
+    std::vector<AstNode> AstGenerator::parse_args(AstNodeT root) {
+        std::vector<AstNode> v; 
 
         if(std::strstr(root->tag, "noarg")) {}
         else if(!std::strstr(root->tag, "args") || root->children_num == 0)
@@ -212,6 +210,7 @@ namespace haxy {
     AstNode AstGenerator::generate_list(AstNodeT root) {
         auto node = std::make_shared<_AstList>();
         node->tag = AstTagList;
+
         node->elems = parse_args(root->children[1]);
 
         return node;

@@ -3,10 +3,8 @@
 #define unknownsym "___afx_unknown_sym___"
 #define donotcreatescope "________________________"
 
-std::unordered_map<std::string, Value> Evaluator::Scope::vars_predefined_empty;
-std::unordered_map<std::string, Func> Evaluator::Scope::funcs_predefined_empty;
-
-void Evaluator::init(mpc_parser_t *p, mpc_parser_t *e) {
+namespace haxy {
+void AstEvaluator::init(mpc_parser_t *p, mpc_parser_t *e) {
     this->parser = p;
     this->expr_parser = e;
 
@@ -17,11 +15,7 @@ void Evaluator::init(mpc_parser_t *p, mpc_parser_t *e) {
 
 /* definitions for Scope */
 
-Evaluator::Scope::Scope() : vars(Evaluator::Scope::vars_predefined_empty),
-                            funcs(Evaluator::Scope::funcs_predefined_empty) {}
-
-void Evaluator::create_new_scope(std::string name) {
-
+void AstEvaluator::create_new_scope(std::string name) {
     Scope *new_scope = new Scope;
     new_scope->name = name;
     new_scope->parent_scope = current_scope;
@@ -29,7 +23,7 @@ void Evaluator::create_new_scope(std::string name) {
     current_scope = new_scope;
 }
 
-void Evaluator::pop_scope() {
+void AstEvaluator::pop_scope() {
     if(!current_scope) return;
     auto parent_scope = current_scope->parent_scope;
 
@@ -37,7 +31,7 @@ void Evaluator::pop_scope() {
     current_scope = parent_scope;
 }
 
-void Evaluator::print_trace() {
+void AstEvaluator::print_trace() {
     std::string res;
 
     auto cscope = current_scope;
@@ -51,11 +45,11 @@ void Evaluator::print_trace() {
     return; 
 }
 
-void Evaluator::new_var(std::string name, Value val) {
+void AstEvaluator::new_var(std::string name, Value val) {
     current_scope->vars[name] = val;
 }
 
-void Evaluator::set_var(std::string name, Value val) {
+void AstEvaluator::set_var(std::string name, Value val) {
     bool is_set = false;
     auto search_scope = current_scope;
 
@@ -68,7 +62,7 @@ void Evaluator::set_var(std::string name, Value val) {
     }
 }
 
-const Value& Evaluator::get_var(std::string name) {
+Value AstEvaluator::get_var(std::string name) {
 
     auto search_scope = current_scope;
 
@@ -76,21 +70,24 @@ const Value& Evaluator::get_var(std::string name) {
         auto it = search_scope->vars.find(name);
         if(it == search_scope->vars.end())
             search_scope = search_scope->parent_scope;
-        else
+        else {
             return it->second;
+        }
     }
 
-    return get_var(unknownsym);
+    return new_error(UnknownSym);
 }
 
 
-void Evaluator::new_func(std::string name, AstNodeT node) {
-    current_scope->funcs[name] = Func{0, MAXINT, [=] (Args a) {
-        return call_func(node, a);
+void AstEvaluator::new_func(AstNode node) {
+    auto func = convert<_AstFunctionDefinition>(node);
+
+    current_scope->funcs[func->name] = Func{0, MAXINT, [=] (Args a) {
+        return call_func(func, a);
     }, false};
 }
 
-void Evaluator::new_func(std::string name, Func f) {
+void AstEvaluator::new_func(std::string name, Func f) {
     current_scope->funcs[name] = Func{f.min_arg, f.max_arg, [=] (Args a) {
         create_new_scope(name + "_call"); 
         Value v = f.call(a);
@@ -99,21 +96,20 @@ void Evaluator::new_func(std::string name, Func f) {
     }, f.eval_args_by_identifier};
 }
 
-Value Evaluator::call_func(AstNodeT node, Args a) {
-    create_new_scope(node->children[1]->children[0]->contents + std::string("()"));
+Value AstEvaluator::call_func(AstFunctionDefinition node, Args a) {
+    create_new_scope(node->name + std::string("()"));
 
-    Args names = eval_args_identifiers(node->children[1]->children[2]);
-    for(int i = 0; i < names.size() && i < a.size(); i++)
-        new_var(names[i]->str, a[i]);
+    for(int i = 0; i < node->args.size() && i < a.size(); i++)
+        new_var(node->args[i], a[i]);
 
-    Value v = eval_block(node->children[2]);
+    Value v = eval_block(node->action);
     v->return_value = false;
     pop_scope();
 
     return v;
 }
 
-Func Evaluator::get_func(std::string name) {
+Func AstEvaluator::get_func(std::string name) {
     bool is_found = false;
 
     auto search_scope = current_scope;
@@ -133,7 +129,7 @@ Func Evaluator::get_func(std::string name) {
 /* end scope */
 
 
-void Evaluator::add_builtin_functions() {
+void AstEvaluator::add_builtin_functions() {
     
     new_func("sum", {2, MAXINT, [=] (Args a) {
         Value s = new_value(0);
@@ -190,6 +186,8 @@ void Evaluator::add_builtin_functions() {
 
     new_func("trace", {0, 0, [=] (Args a) {print_trace(); return new_error(NoValue);}, false});
 
+
+    // TODO: implement readln function
     new_func("readln", {1, MAXINT, [=] (Args a) {
         for(int i = 0; i < a.size(); i++) {
             std::string str;
@@ -199,14 +197,14 @@ void Evaluator::add_builtin_functions() {
 
             if(mpc_parse("input", str.c_str(), expr_parser, &res)) {
                 mpc_ast_print(ast(res.output)); 
-                auto node = ast(res.output);
-                Value v;
-                if(node->tag == std::string("ident|regex"))
-                    v = new_value(node->contents);
-                else
-                    v = eval(node);
-
-                set_var(a[i]->str, v);
+//                auto node = ast(res.output);
+//                Value v;
+//                if(node->tag == std::string("ident|regex"))
+//                    v = new_value(node->contents);
+//                else
+//                    v = eval(node);
+//
+//                set_var(a[i]->str, v);
             }
             else {
                 mpc_err_print(res.error),
@@ -237,8 +235,7 @@ void Evaluator::add_builtin_functions() {
 /* different functions for evaluating */
 
 /* does and operation expression */
-Value doit(Value a, char* op, Value b) {
-    std::string o = op;
+Value doit(Value a, std::string o, Value b) {
 
     if(o == "+") return a + b;
     if(o == "-") return a - b;
@@ -260,53 +257,53 @@ Value doit(Value a, char* op, Value b) {
     return new_error(BadOp);
 }
 
-Value Evaluator::eval_int(std::string str) {
+Value AstEvaluator::eval_int(std::string str) {
     return new_value(std::atoi(str.c_str()));
 }
+//
+//Args AstEvaluator::eval_args(AstNode node) {
+//    Args args;
+//
+//    if(std::strstr(node->tag, "noarg")) {
+//        return Args{};
+//    }
+//
+//    if(!std::strstr(node->tag, "args"))
+//        return Args{eval(node)};
+//
+//    else if(node->children_num == 0) {
+//        AstNodeT as = new mpc_ast_t;
+//        std::memcpy(as, node, sizeof(mpc_ast_t));
+//
+//        Value val = eval(as);
+//        delete as;
+//        return Args{val};
+//    }
+//
+//
+//    for(int i = 0; i < node->children_num; i += 2)
+//        args.push_back(eval(node->children[i]));
+//
+//    return args;
+//}
+//
+//Args AstEvaluator::eval_args_identifiers(AstNodeT node) {
+//    Args args;
+//
+//    if(std::strstr(node->tag, "noarg"))
+//        return Args{};
+//
+//    if(!std::strstr(node->tag, "args") || node->children_num == 0)
+//        return Args{new_value(String(node->contents))};
+//
+//
+//    for(int i = 0; i < node->children_num; i += 2)
+//        args.push_back(new_value(String(node->children[i]->contents)));
+//
+//    return args;
+//}
 
-Args Evaluator::eval_args(AstNodeT node) {
-    Args args;
-
-    if(std::strstr(node->tag, "noarg")) {
-        return Args{};
-    }
-
-    if(!std::strstr(node->tag, "args"))
-        return Args{eval(node)};
-
-    else if(node->children_num == 0) {
-        AstNodeT as = new mpc_ast_t;
-        std::memcpy(as, node, sizeof(mpc_ast_t));
-
-        Value val = eval(as);
-        delete as;
-        return Args{val};
-    }
-
-
-    for(int i = 0; i < node->children_num; i += 2)
-        args.push_back(eval(node->children[i]));
-
-    return args;
-}
-
-Args Evaluator::eval_args_identifiers(AstNodeT node) {
-    Args args;
-
-    if(std::strstr(node->tag, "noarg"))
-        return Args{};
-
-    if(!std::strstr(node->tag, "args") || node->children_num == 0)
-        return Args{new_value(String(node->contents))};
-
-
-    for(int i = 0; i < node->children_num; i += 2)
-        args.push_back(new_value(String(node->children[i]->contents)));
-
-    return args;
-}
-
-bool Evaluator::check_args(Args a) {
+bool AstEvaluator::check_args(Args a) {
     for(auto arg : a)
         if(arg->type == ValueTypeError) return false;
 
@@ -314,31 +311,33 @@ bool Evaluator::check_args(Args a) {
 }
 
 
-List Evaluator::eval_list(AstNodeT node) {
-    Args a = eval_args(node->children[1]); 
+List AstEvaluator::eval_list(AstNode nnode) {
+    auto node = convert<_AstList>(nnode);
 
     List lst;
-    for(auto x : a)
-        lst.push_back(x);
+    for(auto x : node->elems)
+        lst.push_back(eval(x));
 
     return lst;
 }
 
-Value Evaluator::eval_bool(std::string str) {
+Value AstEvaluator::eval_bool(std::string str) {
     if(str == "false") return new_bvalue(false);
     else return new_bvalue(true);
 }
 
-Value Evaluator::eval_func(AstNodeT node) {
-    std::string name = node->children[0]->contents;
-    auto fn = get_func(name);
+Value AstEvaluator::eval_func(AstNode nnode) {
+    auto node = convert<_AstFunctionCall>(nnode);
+    auto fn = get_func(node->name);
 
     Args args;
 
     if(fn.eval_args_by_identifier)
-        args = eval_args_identifiers(node->children[2]);
+        for(auto x : node->args)
+            args.push_back(new_value(convert<_AstVariable>(x)->name));
     else
-        args = eval_args(node->children[2]);
+        for(auto x : node->args)
+            args.push_back(eval(x));
 
     if(fn.min_arg <= args.size() && args.size() <= fn.max_arg)
         return fn.call(args);
@@ -347,208 +346,176 @@ Value Evaluator::eval_func(AstNodeT node) {
     
 }
 
-Value Evaluator::eval_comp(AstNodeT node) {
-    Value a = eval(node->children[0]);
-    char *op = node->children[1]->contents;
-    Value b = eval(node->children[2]);
-
-    return doit(a, op, b);
+Value AstEvaluator::eval_comp(AstNode nnode) {
+    auto node = convert<_AstOperation> (nnode);
+    return doit(eval(node->left), node->op, eval(node->right));
 }
 
-Value Evaluator::eval_if(AstNodeT node) {
-    std::cout << "eval if" << std::endl;
-    for(int i = 0; i < node->children_num; i++) {
+Value AstEvaluator::eval_if(AstNode nnode) {
 
-        if(std::strstr(node->children[i]->tag, "else")) {
-            return eval_block(node->children[i]->children[1], "else"); 
-        }
+    auto node = convert<_AstConditional>(nnode);
+    for(auto x : node->children) {
 
-        Value res = eval(node->children[i]->children[1]);
-        if((res->type & ValueTypeBoolArithm) && res->long_val) {
-            return eval_block(node->children[i]->children[2], "if");
-        }
-        else if (res->type == ValueTypeError) {
-            std::cout << "error\n";
-            res->return_value = true;
-            return res;
+        switch(x->type) {
+            case IfTypeElse:
+                return eval_block(x->block, "else"); 
+                break;
+
+            default:
+                Value res = eval(x->expr);
+
+                if((res->type & ValueTypeBoolArithm) && res->long_val) {
+                    return eval_block(x->block, "if");
+                }
+                else if (res->type == ValueTypeError) {
+                    std::cout << "error\n";
+                    res->return_value = true;
+                    return res;
+                }
         }
     }
 
     return new_value(NoValue);;
 }
 
-Value Evaluator::eval_while(AstNodeT node) {
-    auto val = eval(node->children[1]);
+Value AstEvaluator::eval_while(AstNode nnode) {
+    auto node = convert<_AstWhile> (nnode);
+    Value val;
 
-    while((val->type & ValueTypeBoolArithm) && val->long_val) {
-        Value tmp = eval_block(node->children[2], "while");
+    while((val = eval(node->condition))->to_bool()) {
+        Value tmp = eval_block(node->action, "while");
         if(tmp->return_value) return tmp;
-        val = eval(node->children[1]);
     }
 
     return new_error(NoValue);
 }
 
 
-Value Evaluator::eval(AstNodeT node) {
+Value AstEvaluator::eval(AstNode node) {
 
+    switch(node->tag) {
 
-    if(std::strstr(node->tag, "number"))
-        return eval_int(node->contents);
+        case AstTagValue:
+            return convert<_AstValue>(node)->value;
 
-    else if(std::strstr(node->tag, "dbl"))
-        return new_dvalue(std::stod(node->contents));
+        case AstTagList:
+            return new_value(eval_list(node));
+
+        case AstTagVariable:
+            return get_var(convert<_AstVariable>(node)->name);
+
+        case AstTagOperation:
+            return eval_comp(node);
+
+        case AstTagFoldExpression: {
+            auto expr = convert<_AstFoldExpr>(node);
+            Value x = eval(expr->args[0]);
+
+            for(int i = 1; i < expr->args.size(); i++)
+                x = doit(x, expr->op, eval(expr->args[i])); 
+
+            return x;
+        }
+
+        case AstTagVariableAssignment: {
+            auto tmp = convert<_AstVariableAssignment>(node);
+            Value val = eval(tmp->value);
+
+            Value var = get_var(tmp->var_name);
+            if(var->type == ValueTypeError && val->error == UnknownSym)
+                return new_error(UnknownSym);
+
+            set_var(tmp->var_name, val);
+            return val;
+        }
+
+        case AstTagVariableDeclaration: {
+            auto tmp = convert<_AstVariableDeclaration>(node);
+
+            for(int i = 0; i < tmp->children.size(); i++) {
+
+                switch(tmp->children[i]->tag) {
+                    case AstTagVariableAssignment: {
+                            auto var = convert<_AstVariableAssignment>(tmp->children[i]);
+                            Value val = eval(var->value);
+                            new_var(var->var_name, val);
+                            break;
+                    }
+
+                    case AstTagVariable:
+                        new_var(convert<_AstVariable>(tmp->children[i])->name, new_error(NoValue));
+                        break;
+
+                    default:
+                        break;
+                }
+            }
+
+            return new_error(NoValue);
+        }
+
+        case AstTagListQ: {
+            auto listq = convert<_AstListQ>(node);                  
+
+            Value arr = get_var(listq->name);
+
+            for(auto index : listq->indices) {
+                Value ind_val = eval(index);
+                if(ind_val->type != ValueTypeNumber || arr->type != ValueTypeList)
+                    return new_error(BadValue);
+
+                auto size = arr->lst.size();
+                auto ind = ind_val->long_val;
+
+                if(ind < 0 || ind > size)
+                    ind_val->long_val = (ind % size + size) % size;
+
+                arr = (*arr)[ind_val];
+            }
+
+            return arr;
+        } 
+
+        case AstTagListAssignment: {
+            auto lass = convert<_AstListAssignment>(node);
+            auto left = eval(lass->left_side);
+            *left = *eval(lass->right_side);
+            return new_error(NoValue);
+        }
     
-    else if(std::strstr(node->tag, "bool"))
-        return eval_bool(node->contents); 
+        case AstTagConditional:
+            return eval_if(node);
+        
+        case AstTagWhile:
+            return eval_while(node);
 
-    else if(std::strstr(node->tag, "str")) {
-        auto tmp = String(node->contents);
-        return new_value(tmp.substr(1, tmp.length() - 2));
-    }
-
-    else if(std::strstr(node->tag, "return")) {
-        Value v = eval(node->children[1]);
-        v->return_value = true;
-        return v;
-    }
-
-    else if(std::strstr(node->tag, "modlist")) {
-        std::string name = node->children[0]->children[0]->contents;
-
-        Value arr = get_var(name); 
-        if(arr->type != ValueTypeList) return new_error(UnknownSym);
-
-        Value index = eval(node->children[0]->children[2]);
-        if(index->type != ValueTypeNumber) return new_error(BadValue);
-
-
-        auto size = arr->lst.size();
-
-        /* numbering is mod size */
-        index->long_val = (index->long_val % size + size) % size;
-        arr->lst[index->long_val] = eval(node->children[2]);
-
-        //set_var(name, arr);
-
-        return new_error(NoValue);
-    }
-
-    else if(std::strstr(node->tag, "listq")) {
-        std::string name = node->children[0]->contents;
-        Value arr = get_var(name);
-        if(arr->type != ValueTypeList) return new_error(BadOp);
-
-        Value index = eval(node->children[2]);
-        if(index->type != ValueTypeNumber) return new_error(BadValue);
-
-        auto size = arr->lst.size();
-        index->long_val = (index->long_val % size + size) % size;
-        return arr->lst[index->long_val];
-    }
-
-    else if(std::strstr(node->tag, "var")) {
-        for(int i = 1; i < node->children_num; i += 2) {
-
-            if(std::strstr(node->children[i]->tag, "assign")) { // initialize variable
-                std::string name = node->children[i]->children[0]->contents;
-                std::cout << "btw" << std::endl;
-                Value val = eval(node->children[i]->children[2]);
-                std::cout << "blah blah " << val << std::endl;
-                new_var(name, val);
-                std::cout << "danach" << std::endl;
-            }
-
-            else {
-                std::string name = node->children[i]->contents;
-                new_var(name, new_error(NoValue));
-            }
+        case AstTagFunctionDefinition : {
+            new_func(node);
+            return new_error(NoValue);
         }
 
-        return new_error(NoValue);
-    }
+        case AstTagFunctionCall:
+            return eval_func(node);
 
-    else if(std::strstr(node->tag, "assign")) {
-        std::string name = node->children[0]->contents;
-        Value val = eval(node->children[2]);
-
-        Value var = get_var(name);
-        if(var->type == ValueTypeError && val->error == UnknownSym)
-            return new_error(UnknownSym);
-
-        set_var(name, val);
-        return val;
-    }
-
-    else if(std::strstr(node->tag, "cond"))
-        return eval_if(node);
-
-    else if(std::strstr(node->tag, "if")) {
-        Value arg = eval(node->children[1]);
-
-        if((arg->type & ValueTypeBoolArithm) && arg->long_val) {
-            eval_block(node->children[2]); 
+        case AstTagReturn: {
+            Value v = eval(convert<_AstReturn>(node)->expr);
+            v->return_value = true;
+            return v;
         }
-        else if(arg->type == ValueTypeError)
-            return arg;
+        case AstTagBlock:
+            return eval_block(convert<_AstBlock>(node), donotcreatescope, false);
 
-        return new_error(BadValue);
-    }
-
-    else if(std::strstr(node->tag, "while"))
-        return eval_while(node);
-
-    else if(std::strstr(node->tag, "ident")) {
-        std::string name = node->contents;
-        return get_var(name);
-    }
-
-    else if(std::strstr(node->tag, "gcomp"))
-        return eval_comp(node->children[1]);
-    else if(std::strstr(node->tag, "comp"))
-        return eval_comp(node);
-
-    else if(std::strstr(node->tag, "expr")) {
-
-        char *op = node->children[1]->contents;
-        Value x = eval(node->children[2]);
-
-        int i = 3;
-        while(is_computable(node->children[i]->tag)) {
-            x = doit(x, op, eval(node->children[i]));
-            ++i;
-        }
-
-        return x;
-    }
-
-    else if(std::strstr(node->tag, "fundef")){
-        new_func(node->children[1]->children[0]->contents, node);
-        return new_error(NoValue);
-    }
-
-    else if(std::strstr(node->tag, "func"))
-        return eval_func(node);
-
-    else if(std::strstr(node->tag, "list"))
-        return new_value(eval_list(node));
-
-    else {
-        for(int i = 0; i < node->children_num; i++) {
-            auto v = eval(node->children[i]);
-            if(v->type != ValueTypeError) return v;
-            else if(v->error != NoValue) return v;
-            
-        }
+        default:
+            std::cout << "Hit eval(AstTagBlock/Expr). This means bug!" << std::endl;
     }
 
     return new_error(NoValue);
 }
 
-Value Evaluator::eval_block(AstNodeT node, std::string new_scope, bool create_scope) {
+Value AstEvaluator::eval_block(AstBlock node, std::string new_scope, bool create_scope) {
     if(create_scope) create_new_scope(new_scope);
 
-    for(int i = 1; i < node->children_num - 1; i++) {
+    for(int i = 0; i < node->children.size(); i++) {
         Value v = eval(node->children[i]);
         if(v->return_value) {
             if(create_scope) pop_scope();
@@ -557,28 +524,25 @@ Value Evaluator::eval_block(AstNodeT node, std::string new_scope, bool create_sc
     }
 
     if(create_scope) pop_scope();
-
     return new_error(NoValue);
 }
 
-void Evaluator::eval_file(std::string name) {
+void AstEvaluator::eval_file(std::string name) {
     std::string src = load_file(name);
 
     mpc_result_t res;
 
     if(mpc_parse("input", src.c_str(), parser, &res)) {
         mpc_ast_print(ast(res.output)); 
-        eval_block(ast(res.output));
-        loaded_asts.push_back(ast(res.output));
+
+        auto output = convert<_AstBlock>(AstGenerator::parse_file(ast(res.output)));
+
+        eval_block(output);
     }
     else {
         mpc_err_print(res.error),
         mpc_err_delete(res.error);
     }
 }
-
-void Evaluator::cleanup() {
-    for(auto x : loaded_asts)
-        mpc_ast_delete(x);
 }
 /* end eval_xxx */

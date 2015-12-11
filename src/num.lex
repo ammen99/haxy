@@ -24,6 +24,7 @@ cond     : <if> <elif>* <else>* ;
 while    : "while" <gcomp> <body> ;
 body     : '{' <state>* '}' ;
 fundef   : "def" <func> <body> ;
+class    : "class" <ident> '{' (<var> | <fundef>)* '}' ;
 toplevel : <fundef> | <state> | <comp> | <list> | <expr> ;
 lispy    : /^/ <toplevel>* /$/ ;
 listq    : <ident> ('[' <expr> ']')+ ;
