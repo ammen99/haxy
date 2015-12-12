@@ -11,9 +11,8 @@ normal   : <listq> | <str> | <func> | <dbl> | <number> | <bool> | <ident> | <gco
 comp     : <normal> <operator> <expr>;
 gcomp    : '(' <comp> ')' ;
 expr     : <comp> | <gcomp> | <normal> | <list> | '(' <operator> <expr>+ ')' ;
-assign   : <ident> '=' <expr> ;
+assign   : (<listq> | <ident>) '=' <expr> ;
 var      : "var" (<assign> | <ident>) (',' (<assign> | <ident>))* ';' ;
-modlist  : <listq> '=' <expr> ;
 list     : '[' <args> ']' ;
 str      : /\"(\\\\.|[^\"])*\"/ ;
 state    : <modlist> ';' | <listq> | <return> | <var> | <assign> ';' | <func> ';' | <cond> | <while> ;

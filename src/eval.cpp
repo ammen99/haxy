@@ -1,6 +1,5 @@
 #include "eval.hpp"
 
-#define unknownsym "___afx_unknown_sym___"
 #define donotcreatescope "________________________"
 
 namespace haxy {
@@ -62,7 +61,10 @@ void AstEvaluator::set_var(std::string name, Value val) {
     }
 }
 
-Value AstEvaluator::get_var(std::string name) {
+Value unknownsym = new_error(UnknownSym);
+Value badvalue   = new_error(BadValue);
+
+Value& AstEvaluator::get_var(std::string name) {
 
     auto search_scope = current_scope;
 
@@ -75,7 +77,7 @@ Value AstEvaluator::get_var(std::string name) {
         }
     }
 
-    return new_error(UnknownSym);
+    return unknownsym;
 }
 
 
@@ -412,13 +414,72 @@ Value AstEvaluator::eval_while(AstNode nnode) {
     return new_error(NoValue);
 }
 
+Value& AstEvaluator::eval_listq(AstListQ listq) {
+    Value *arr = &get_var(listq->name);
+
+    for(auto index : listq->indices) {
+        Value ind_val = eval(index);
+        if(ind_val->type != ValueTypeNumber || (*arr)->type != ValueTypeList)
+            return badvalue;
+
+        auto size = (*arr)->lst.size();
+        auto ind = ind_val->long_val;
+
+        if(ind < 0 || ind > size)
+            ind_val->long_val = (ind % size + size) % size;
+
+        arr = &(**arr)[ind_val];
+    }
+
+    return *arr;
+}
+
+Value AstEvaluator::eval_assignment(AstAssignment node) {
+
+    Value val = eval(node->right_side);
+
+    switch(node->left_side->tag) {
+        case AstTagListQ: {
+            Value& left = eval_listq(convert<_AstListQ>(node->left_side));
+            std::cout << "listq left " << left << std::endl;
+            std::cout << get_var(convert<_AstListQ>(node->left_side)->name) << std::endl;
+            *left = *val;
+            break;
+        }
+
+        case AstTagVariable: {
+            auto name = convert<_AstVariable>(node->left_side)->name;
+
+            Value &left = get_var(convert<_AstVariable>(node->left_side)->name);
+            if(left->type == ValueTypeError && left->error == UnknownSym) return unknownsym;
+
+            set_var(name, val);
+            break;
+        }
+
+        default:
+            break;
+    }
+
+    return val;
+}
+
 Value AstEvaluator::eval_vardecl(AstVariableDeclaration node) {
     for(int i = 0; i < node->children.size(); i++) {
         switch(node->children[i]->tag) {
-            case AstTagVariableAssignment: {
-                auto var = convert<_AstVariableAssignment>(node->children[i]);
-                Value val = eval(var->value);
-                new_var(var->var_name, val);
+            case AstTagAssignment: {
+                auto var = convert<_AstAssignment>(node->children[i]);
+
+                if(var->left_side->tag != AstTagVariable) {
+                    std::cout << "Cannot declare non-variables" << std::endl;
+                    continue;
+                }
+
+                new_var(convert<_AstVariable>(var->left_side)->name, new_error(NoValue));
+
+                std::cout << "new var " << std::endl;
+                eval_assignment(var);
+
                 break;
             }
 
@@ -461,50 +522,15 @@ Value AstEvaluator::eval(AstNode node) {
             return x;
         }
 
-        case AstTagVariableAssignment: {
-            auto tmp = convert<_AstVariableAssignment>(node);
-            Value val = eval(tmp->value);
-
-            Value var = get_var(tmp->var_name);
-            if(var->type == ValueTypeError && val->error == UnknownSym)
-                return new_error(UnknownSym);
-
-            set_var(tmp->var_name, val);
-            return val;
-        }
+        case AstTagAssignment:
+            return eval_assignment(convert<_AstAssignment>(node)); 
 
         case AstTagVariableDeclaration:
             return eval_vardecl(convert<_AstVariableDeclaration>(node));
 
-        case AstTagListQ: {
-            auto listq = convert<_AstListQ>(node);                  
+        case AstTagListQ: 
+            return eval_listq(convert<_AstListQ>(node));
 
-            Value arr = get_var(listq->name);
-
-            for(auto index : listq->indices) {
-                Value ind_val = eval(index);
-                if(ind_val->type != ValueTypeNumber || arr->type != ValueTypeList)
-                    return new_error(BadValue);
-
-                auto size = arr->lst.size();
-                auto ind = ind_val->long_val;
-
-                if(ind < 0 || ind > size)
-                    ind_val->long_val = (ind % size + size) % size;
-
-                arr = (*arr)[ind_val];
-            }
-
-            return arr;
-        } 
-
-        case AstTagListAssignment: {
-            auto lass = convert<_AstListAssignment>(node);
-            auto left = eval(lass->left_side);
-            *left = *eval(lass->right_side);
-            return new_error(NoValue);
-        }
-    
         case AstTagConditional:
             return eval_if(node);
         

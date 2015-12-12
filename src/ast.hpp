@@ -28,9 +28,8 @@ namespace haxy {
         AstTagBlock  = 7,   //
         AstTagReturn = 8,   //
         AstTagFunctionDefinition  = 9,  //
-        AstTagVariableAssignment  = 10, //
+        AstTagAssignment  = 10, //
         AstTagVariableDeclaration = 11, //
-        AstTagListAssignment      = 12, //
         AstTagFoldExpression      = 13, //
         AstTagFunctionCall        = 14, //
         AstTagConditional         = 15, //
@@ -85,13 +84,6 @@ namespace haxy {
     };
     decl_shared_ptr(AstListQ);
 
-    struct _AstListAssignment : _AstNode {
-        AstListQ left_side; 
-        AstNode right_side;
-    };
-
-    decl_shared_ptr(AstListAssignment);
-
     struct _AstDeclarableExpression : _AstExpr {};
     decl_shared_ptr(AstDeclarableExpression);
 
@@ -100,11 +92,13 @@ namespace haxy {
     };
     decl_shared_ptr(AstVariable);
 
-    struct _AstVariableAssignment : _AstDeclarableExpression {
-        std::string var_name;
-        AstNode value;
+    struct _AstAssignment : _AstDeclarableExpression {
+        AstNode left_side; 
+        AstNode right_side;
     };
-    decl_shared_ptr(AstVariableAssignment);
+
+    decl_shared_ptr(AstAssignment);
+
 
     struct _AstVariableDeclaration : _AstNode {
         std::vector<AstDeclarableExpression> children; 

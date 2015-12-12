@@ -50,9 +50,9 @@ namespace haxy {
         }
 
         else if(std::strstr(root->tag, "modlist")) {
-            auto node = std::make_shared<_AstListAssignment>();
-            node->tag = AstTagListAssignment;
-            node->left_side = convert<_AstListQ>(generate(root->children[0]));
+            auto node = std::make_shared<_AstAssignment>();
+            node->tag = AstTagAssignment;
+            node->left_side = generate(root->children[0]);
             node->right_side = generate(root->children[2]);
 
             return node;
@@ -74,11 +74,15 @@ namespace haxy {
             return generate_vardecl(root);
 
         else if(std::strstr(root->tag, "assign")) {
-            auto node = std::make_shared<_AstVariableAssignment>();
-            node->tag = AstTagVariableAssignment;
+            auto node = std::make_shared<_AstAssignment>();
+            node->tag = AstTagAssignment;
 
-            node->var_name = root->children[0]->contents;
-            node->value = generate(root->children[2]);
+            auto left = std::make_shared<_AstVariable>();
+            left->tag = AstTagVariable;
+            left->name = root->children[0]->contents;
+
+            node->left_side = left;
+            node->right_side = generate(root->children[2]);
 
             return node;
         }
@@ -215,11 +219,16 @@ namespace haxy {
         for(int i = 1; i < root->children_num; i += 2) {
 
             if(std::strstr(root->children[i]->tag, "assign")) { // initialize variable
-                auto child = std::make_shared<_AstVariableAssignment>();
+                auto child = std::make_shared<_AstAssignment>();
 
-                child->tag = AstTagVariableAssignment;
-                child->var_name = root->children[i]->children[0]->contents;
-                child->value = generate(root->children[i]->children[2]);
+                child->tag = AstTagAssignment;
+
+                auto left = std::make_shared<_AstVariable>();
+                left->tag = AstTagVariable;
+                left->name = root->children[i]->children[0]->contents;
+
+                child->left_side = left;
+                child->right_side = generate(root->children[i]->children[2]);
 
                 node->children.push_back(child);
             }
@@ -402,13 +411,15 @@ namespace haxy {
                 break;
             }
 
-            case AstTagVariableAssignment: {
+            case AstTagAssignment: {
                 write("assignment:\n", depth);                               
-                write("name = ", depth + 4);
+                write("left_side = \n", depth + 4);
                 
-                auto assign = convert<_AstVariableAssignment>(node);
-                write(assign->var_name + "\n", 0);
-                write(assign->value, depth + 4);
+                auto assign = convert<_AstAssignment>(node);
+                write(assign->left_side, depth + 8);
+
+                write("left_side = \n", depth + 4);
+                write(assign->right_side, depth + 8);
                 break;
             }
 
@@ -419,15 +430,6 @@ namespace haxy {
                 for(int i = 0; i < decl->children.size(); i++) {
                     write(decl->children[i], depth + 4);
                 }
-                break;
-            }
-
-            case AstTagListAssignment: {
-                write("listassign:\n", depth);
-                
-                auto list = convert<_AstListAssignment>(node);
-                write(list->left_side, depth + 4);
-                write(list->right_side, depth + 4);
                 break;
             }
 
@@ -593,10 +595,11 @@ namespace haxy {
                 write(convert<_AstVariable>(node)->name, 0);
                 break;
 
-            case AstTagVariableAssignment: {
-                auto assign = convert<_AstVariableAssignment>(node);
-                write(assign->var_name + " = ", depth);
-                write(assign->value, 0, false);
+            case AstTagAssignment: {
+                auto assign = convert<_AstAssignment>(node);
+                write(assign->left_side, depth, false);
+                write(" = ", 0);
+                write(assign->right_side, 0, false);
                 break;
             }
 
@@ -619,14 +622,6 @@ namespace haxy {
                     out << "[",
                     write(listq->indices[i], 0, false),
                     out << "]";
-                break;
-            }
-
-            case AstTagListAssignment: {
-                auto list = convert<_AstListAssignment>(node);
-                write(list->left_side, depth, false);
-                write(" = ", 0);
-                write(list->right_side, 0, false);
                 break;
             }
 
