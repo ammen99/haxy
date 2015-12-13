@@ -19,22 +19,23 @@ using AstNodeT = mpc_ast_t*;
 namespace haxy {
         
     enum AstTag {
-        AstTagValue    = 1, //
-        AstTagVariable = 2, //
-        AstTagList     = 3, //
-        AstTagListQ  = 4,   //
-        AstTagExpr   = 5,   //
-        AstTagWhile  = 6,   //
-        AstTagBlock  = 7,   //
-        AstTagReturn = 8,   //
-        AstTagFunctionDefinition  = 9,  //
-        AstTagAssignment  = 10, //
-        AstTagVariableDeclaration = 11, //
-        AstTagFoldExpression      = 13, //
-        AstTagFunctionCall        = 14, //
-        AstTagConditional         = 15, //
-        AstTagOperation           = 16, //
+        AstTagValue    = 1,
+        AstTagVariable = 2,
+        AstTagList     = 3,
+        AstTagListQ  = 4,
+        AstTagExpr   = 5,
+        AstTagWhile  = 6,
+        AstTagBlock  = 7,
+        AstTagReturn = 8,
+        AstTagFunctionDefinition  = 9,
+        AstTagAssignment          = 10,
+        AstTagVariableDeclaration = 11,
+        AstTagFoldExpression      = 13,
+        AstTagFunctionCall        = 14,
+        AstTagConditional         = 15,
+        AstTagOperation           = 16,
         AstTagClass               = 17,
+        AstTagClassRef            = 18,
     };
 
     struct _AstNode {
@@ -146,6 +147,11 @@ namespace haxy {
         AstBlock action;
     };
     decl_shared_ptr(AstWhile);
+
+    struct _AstClassReference : _AstNode {
+        std::vector<AstNode> refs; 
+    };
+    decl_shared_ptr(AstClassReference);
 
 
     class AstGenerator {

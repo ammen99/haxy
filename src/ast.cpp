@@ -49,15 +49,6 @@ namespace haxy {
             return node;
         }
 
-        else if(std::strstr(root->tag, "modlist")) {
-            auto node = std::make_shared<_AstAssignment>();
-            node->tag = AstTagAssignment;
-            node->left_side = generate(root->children[0]);
-            node->right_side = generate(root->children[2]);
-
-            return node;
-        }
-
         else if(std::strstr(root->tag, "listq")) {
             auto node = std::make_shared<_AstListQ>();
 
@@ -77,11 +68,7 @@ namespace haxy {
             auto node = std::make_shared<_AstAssignment>();
             node->tag = AstTagAssignment;
 
-            auto left = std::make_shared<_AstVariable>();
-            left->tag = AstTagVariable;
-            left->name = root->children[0]->contents;
-
-            node->left_side = left;
+            node->left_side = generate(root->children[0]);
             node->right_side = generate(root->children[2]);
 
             return node;
@@ -156,6 +143,16 @@ namespace haxy {
                 else
                     node->funcs.push_back(generate_func_def(root->children[i]));
             }
+
+            return node;
+        }
+
+        else if(std::strstr(root->tag, "member")) {
+            auto node = std::make_shared<_AstClassReference>(); 
+            node->tag = AstTagClassRef;
+
+            for(int i = 1; i < root->children_num; i += 2)
+                node->refs.push_back(generate(root->children[i])); 
 
             return node;
         }
@@ -500,6 +497,16 @@ namespace haxy {
                 for(auto x : cl->vars)
                     write(x, depth + 4);
                 for(auto x : cl->funcs)
+                    write(x, depth + 4);
+
+                break;
+            }
+
+            case AstTagClassRef: {
+                auto clref = convert<_AstClassReference>(node);                     
+
+                write("class ref:\n", depth);
+                for(auto x : clref->refs)
                     write(x, depth + 4);
 
                 break;

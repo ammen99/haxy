@@ -64,7 +64,7 @@ void AstEvaluator::set_var(std::string name, Value val) {
 Value unknownsym = new_error(UnknownSym);
 Value badvalue   = new_error(BadValue);
 
-Value& AstEvaluator::get_var(std::string name) {
+Value AstEvaluator::get_var(std::string name) {
 
     auto search_scope = current_scope;
 
@@ -414,24 +414,113 @@ Value AstEvaluator::eval_while(AstNode nnode) {
     return new_error(NoValue);
 }
 
-Value& AstEvaluator::eval_listq(AstListQ listq) {
-    Value *arr = &get_var(listq->name);
+Value AstEvaluator::eval_listq(AstListQ listq) {
+    Value arr = get_var(listq->name);
 
     for(auto index : listq->indices) {
         Value ind_val = eval(index);
-        if(ind_val->type != ValueTypeNumber || (*arr)->type != ValueTypeList)
+        if(ind_val->type != ValueTypeNumber || arr->type != ValueTypeList)
             return badvalue;
 
-        auto size = (*arr)->lst.size();
+        auto size = arr->lst.size();
         auto ind = ind_val->long_val;
 
         if(ind < 0 || ind > size)
             ind_val->long_val = (ind % size + size) % size;
 
-        arr = &(**arr)[ind_val];
+        arr = (*arr)[ind_val];
     }
 
-    return *arr;
+    return arr;
+}
+
+Value AstEvaluator::eval_classref(AstClassReference clref) {
+    std::cout << "eval classref " << clref->refs.size() << std::endl;
+    Value arr = eval(clref->refs[0]);;
+
+    for(int i = 1; i < clref->refs.size(); i++) {
+
+        if(arr->type != ValueTypeScope) return badvalue; 
+        Scope& sc = arr->sc;
+
+        switch(clref->refs[i]->tag) {
+            case AstTagVariable: {
+                auto name = convert<_AstVariable>(clref->refs[i])->name; 
+
+                auto it = sc.vars.find(name);
+                if(it == sc.vars.end()) 
+                    return unknownsym;
+
+                arr = it->second;
+                break;
+            }
+
+            case AstTagListQ: {
+                auto listq = convert<_AstListQ>(clref->refs[i]);                  
+
+                auto it = sc.vars.find(listq->name);
+                if(it == sc.vars.end()) return unknownsym;
+
+                sc.parent_scope = current_scope;
+                current_scope = &sc;
+
+                arr = eval_listq(listq);
+
+                current_scope = current_scope->parent_scope;
+                break;
+            }
+
+            default:
+                break;
+
+        }
+    }
+
+//    switch(first->tag) {
+//        case AstTagListQ:
+//            arr = eval_listq(convert<_AstListQ>(first));
+//            break;
+//        case AstTagVariable:
+//            arr = get_var(convert<_AstVariable>(first)->name);
+//            break;
+//
+//        case 
+//
+//        default:
+//            std::cout << "using refs on non-reference type"<< std::endl;
+//            arr = badvalue;
+//    }
+//
+//    if(arr->type == ValueTypeError) return badvalue;
+//
+//    for(int i = 1; i < clref->refs.size(); i++) {
+//        if(arr->type != ValueTypeScope) return badvalue; 
+//
+//        Scope& sc = arr->sc;
+//
+//        switch(clref->refs[i]->tag) {
+//            case AstTagVariable: {
+//                auto name = convert<_AstVariable>(clref->refs[i])->name; 
+//
+//                auto it = sc.vars.find(name);
+//                if(it == sc.vars.end()) 
+//                    return unknownsym;
+//
+//                sc.parent_scope = current_scope;
+//                current_scope = &sc;
+//
+//                arr = get_var(name);
+//                break;
+//            }
+//
+//            default:
+//                break;
+//                  
+//        }
+//    }
+//
+
+    return arr;
 }
 
 Value AstEvaluator::eval_assignment(AstAssignment node) {
@@ -440,9 +529,7 @@ Value AstEvaluator::eval_assignment(AstAssignment node) {
 
     switch(node->left_side->tag) {
         case AstTagListQ: {
-            Value& left = eval_listq(convert<_AstListQ>(node->left_side));
-            std::cout << "listq left " << left << std::endl;
-            std::cout << get_var(convert<_AstListQ>(node->left_side)->name) << std::endl;
+            Value left = eval_listq(convert<_AstListQ>(node->left_side));
             *left = *val;
             break;
         }
@@ -450,10 +537,10 @@ Value AstEvaluator::eval_assignment(AstAssignment node) {
         case AstTagVariable: {
             auto name = convert<_AstVariable>(node->left_side)->name;
 
-            Value &left = get_var(convert<_AstVariable>(node->left_side)->name);
+            Value left = get_var(convert<_AstVariable>(node->left_side)->name);
             if(left->type == ValueTypeError && left->error == UnknownSym) return unknownsym;
 
-            set_var(name, val);
+            *left = *val;
             break;
         }
 
@@ -476,8 +563,6 @@ Value AstEvaluator::eval_vardecl(AstVariableDeclaration node) {
                 }
 
                 new_var(convert<_AstVariable>(var->left_side)->name, new_error(NoValue));
-
-                std::cout << "new var " << std::endl;
                 eval_assignment(var);
 
                 break;
@@ -556,6 +641,9 @@ Value AstEvaluator::eval(AstNode node) {
         case AstTagClass:
             create_constructor(node);
             break;
+
+        case AstTagClassRef:
+            return eval_classref(convert<_AstClassReference>(node));
 
         default:
             std::cout << "Hit eval(AstTagBlock/Expr). This means bug!" << std::endl;

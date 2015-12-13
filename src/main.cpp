@@ -40,7 +40,7 @@ int main(int argc, char *argv[]) {
     mpc_parser_t* st   = mpc_new("state"); 
     mpc_parser_t* fd   = mpc_new("fundef");
     mpc_parser_t* top  = mpc_new("toplevel");
-    mpc_parser_t* norm = mpc_new("normal");
+    mpc_parser_t* norm = mpc_new("value");
     mpc_parser_t* body = mpc_new("body");
     mpc_parser_t* comp = mpc_new("comp");
     mpc_parser_t* gcomp= mpc_new("gcomp");
@@ -55,12 +55,13 @@ int main(int argc, char *argv[]) {
     mpc_parser_t* ret  = mpc_new("return");
     mpc_parser_t* lq   = mpc_new("listq");
     mpc_parser_t* clss = mpc_new("class");
+    mpc_parser_t* memb = mpc_new("member");
 
     auto lex = load_file("/home/ilex/work/lispy/src/num.lex");
     mpca_lang(MPCA_LANG_DEFAULT, lex.c_str(), clss, lq, ret, wh, assi, felif, elif, elsee, cond, iff, norm,
             comp, gcomp, num, bl, op, body, str, id, 
             arg, args, noarg, func,
-            expr, st, fd, var, lst, top, dbl, cmd);
+            expr, st, fd, var, lst, top, dbl, memb, cmd);
 
     haxy::AstEvaluator eval;
     eval.init(cmd, norm);
@@ -71,6 +72,7 @@ int main(int argc, char *argv[]) {
     if(mpc_parse("input", src.c_str(), cmd, &res)) {
         mpc_ast_print(ast(res.output));
 
+        std::cout << "gen " << std::endl;
         auto r = haxy::AstGenerator::parse_file((AstNodeT)(res.output));
 
         std::cout << "wwww" << std::endl;
@@ -88,6 +90,6 @@ int main(int argc, char *argv[]) {
 
     mpc_cleanup(9, elsee, elif, noarg, cond, num, lq, str,
             wh, op, id, assi, felif, arg, args, bl, func, norm, body,
-            comp, gcomp, expr, var, lst, st, dbl, clss, ret, fd, iff, top, cmd);
+            comp, gcomp, expr, var, lst, st, dbl, clss, memb, ret, fd, iff, top, cmd);
     return 0;
 }

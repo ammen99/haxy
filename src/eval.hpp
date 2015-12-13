@@ -21,7 +21,7 @@ class AstEvaluator {
 
     void   new_var(std::string name, Value val);
     void   set_var(std::string name, Value val);
-    Value& get_var(std::string name);
+    Value  get_var(std::string name);
 
     Func get_func(std::string name);
 
@@ -50,7 +50,8 @@ class AstEvaluator {
      * and can introduce a new scope */
     Value eval_block(AstBlock node, std::string new_scope = "__unnamed__", bool create = true);
 
-    Value& eval_listq(AstListQ node);
+    Value eval_listq(AstListQ node);
+    Value eval_classref(AstClassReference node);
     Value eval_assignment(AstAssignment node);
     Value eval_vardecl(AstVariableDeclaration node);
 
