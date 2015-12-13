@@ -7,107 +7,102 @@ void AstEvaluator::init(mpc_parser_t *p, mpc_parser_t *e) {
     this->parser = p;
     this->expr_parser = e;
 
-    create_new_scope("__global__");
-    //new_var(unknownsym, new_error(UnknownSym));
+    scope_stack.push_scope("__global__");
     add_builtin_functions();
 }
 
 /* definitions for Scope */
 
-void AstEvaluator::create_new_scope(std::string name) {
-    Scope *new_scope = new Scope;
-    new_scope->name = name;
-    new_scope->parent_scope = current_scope;
-
-    current_scope = new_scope;
+void AstEvaluator::ScopeStack::push_scope(std::string name) {
+    Scope new_scope;
+    new_scope.name = name;
+    stack.push_back(new_scope);
 }
 
-void AstEvaluator::pop_scope() {
-    if(!current_scope) return;
-    auto parent_scope = current_scope->parent_scope;
-
-    delete current_scope;
-    current_scope = parent_scope;
+void AstEvaluator::ScopeStack::push_scope(Scope s) {
+    stack.push_back(s);
 }
 
-void AstEvaluator::print_trace() {
+void AstEvaluator::ScopeStack::pop_scope() {
+    if(stack.empty()) return;
+    stack.pop_back();
+}
+
+Scope AstEvaluator::ScopeStack::get_top_scope() {
+    if(stack.empty()) return Scope();
+
+    return stack[stack.size() - 1];
+}
+
+void AstEvaluator::ScopeStack::print_trace() {
     std::string res;
 
-    auto cscope = current_scope;
+    for(int i = 0; i < stack.size(); i++) {
+        for(int j = 0; j < i * 4; j++) std::cout << " "; 
 
-    while(cscope) {
-        res = cscope->name + "\n" + res;
-        cscope = cscope->parent_scope;
+        std::cout << stack[i].name << std::endl;;
     }
-
-    std::cout << res << std::endl;
-    return; 
 }
 
-void AstEvaluator::new_var(std::string name, Value val) {
-    current_scope->vars[name] = val;
-}
-
-void AstEvaluator::set_var(std::string name, Value val) {
-    bool is_set = false;
-    auto search_scope = current_scope;
-
-    while(!is_set && search_scope) {
-        auto it = search_scope->vars.find(name);
-        if(it == search_scope->vars.end())
-            search_scope = search_scope->parent_scope;
-        else
-            it->second = val, is_set = true;
-    }
+void AstEvaluator::ScopeStack::new_var(std::string name, Value val) {
+    stack[stack.size() - 1].vars[name] = val;
 }
 
 Value unknownsym = new_error(UnknownSym);
 Value badvalue   = new_error(BadValue);
 
-Value AstEvaluator::get_var(std::string name) {
+Value AstEvaluator::ScopeStack::get_var(std::string name) {
 
-    auto search_scope = current_scope;
-
-    while(search_scope) {
-        auto it = search_scope->vars.find(name);
-        if(it == search_scope->vars.end())
-            search_scope = search_scope->parent_scope;
-        else {
-            return it->second;
-        }
+    for(int i = stack.size() - 1; i >= 0; i--) {
+        auto it = stack[i].vars.find(name);
+        if(it != stack[i].vars.end()) return it->second;
     }
 
     return unknownsym;
 }
 
-
-void AstEvaluator::new_func(AstNode node) {
-    auto func = convert<_AstFunctionDefinition>(node);
-
-    current_scope->funcs[func->name] = Func{0, MAXINT, [=] (Args a) {
-        return call_func(func, a);
-    }, false};
-}
-
-void AstEvaluator::new_func(std::string name, Func f) {
-    current_scope->funcs[name] = Func{f.min_arg, f.max_arg, [=] (Args a) {
-        create_new_scope(name + "_call"); 
+void AstEvaluator::ScopeStack::new_func(std::string name, Func f) {
+    stack[stack.size() - 1].funcs[name] = Func{f.min_arg, f.max_arg, [=] (Args a) {
+        push_scope(name + "()"); 
         Value v = f.call(a);
         pop_scope();
         return v;
     }, f.eval_args_by_identifier};
 }
 
+Func AstEvaluator::ScopeStack::get_func(std::string name) {
+
+    for(int i = stack.size() - 1; i >= 0; i--) {
+        auto it = stack[i].funcs.find(name);
+        if(it != stack[i].funcs.end()) return it->second;
+    }
+
+    return Func{0, 0, [] (Args a) {return new_error(UnknownSym);}};
+}
+
+/* End of ScopeStack */
+
+
+void AstEvaluator::new_func(AstNode node) {
+    auto func = convert<_AstFunctionDefinition>(node);
+
+    scope_stack.new_func(func->name,
+            Func{0, MAXINT,
+            [=] (Args a) {
+                return function_call_wrapper(func, a);
+            },
+            false});
+}
+
+
 void AstEvaluator::create_constructor(AstNode nnode) {
     auto cl = convert<_AstClass>(nnode);
 
-    new_func(cl->name, {0, 0, [=] (Args a) {
+    scope_stack.new_func(cl->name, {0, 0, [=] (Args a) {
                 Value v;
                 v->type = ValueTypeScope;
-                new(&v->sc) Scope;
 
-                v->sc.parent_scope = current_scope;
-                current_scope = &v->sc;
+                scope_stack.push_scope(cl->name);
 
                 for(auto fun : cl->funcs)
                     new_func(fun);
@@ -115,47 +110,28 @@ void AstEvaluator::create_constructor(AstNode nnode) {
                 for(auto var : cl->vars)
                     eval_vardecl(var);
 
-                current_scope = current_scope->parent_scope;
+                new(&v->sc) Scope{scope_stack.get_top_scope()};
+                scope_stack.pop_scope();
                 return v;
             }});
 }
 
-Value AstEvaluator::call_func(AstFunctionDefinition node, Args a) {
-    create_new_scope(node->name + std::string("()"));
-
+Value AstEvaluator::function_call_wrapper(AstFunctionDefinition node, Args a) {
     for(int i = 0; i < node->args.size() && i < a.size(); i++)
-        new_var(node->args[i], a[i]);
+        scope_stack.new_var(node->args[i], a[i]);
 
     Value v = eval_block(node->action);
     v->return_value = false;
-    pop_scope();
 
     return v;
 }
-
-Func AstEvaluator::get_func(std::string name) {
-    bool is_found = false;
-
-    auto search_scope = current_scope;
-
-    while(!is_found && search_scope) {
-        auto it = search_scope->funcs.find(name);
-        if(it == search_scope->funcs.end())
-            search_scope = search_scope->parent_scope;
-        else
-            return it->second;
-    }
-
-    return Func{0, 0, [] (Args a) {return new_error(UnknownSym);}};
-}
-
 
 /* end scope */
 
 
 void AstEvaluator::add_builtin_functions() {
     
-    new_func("sum", {2, MAXINT, [=] (Args a) {
+    scope_stack.new_func("sum", {2, MAXINT, [=] (Args a) {
         Value s = new_value(0);
 
         if(!check_args(a)) return new_error(BadValue);
@@ -166,7 +142,7 @@ void AstEvaluator::add_builtin_functions() {
         return s;
     }, false});
 
-    new_func("product", {2, MAXINT, [=] (Args a) {
+    scope_stack.new_func("product", {2, MAXINT, [=] (Args a) {
         Value s = new_value(1);
 
         if(!check_args(a)) return new_error(BadValue);
@@ -177,7 +153,7 @@ void AstEvaluator::add_builtin_functions() {
         return s;
     }, false});
 
-    new_func("sum_range", {2, 2, [=] (Args a) {
+    scope_stack.new_func("sum_range", {2, 2, [=] (Args a) {
         if(!check_args(a)) return new_error(BadValue);
 
         int start = a[0]->long_val;
@@ -186,7 +162,7 @@ void AstEvaluator::add_builtin_functions() {
         return new_value(end * (end + 1) / 2 - (start - 1) * (start) / 2);
     }, false});
 
-    new_func("product_range", {2, 2, [=] (Args a) {
+    scope_stack.new_func("product_range", {2, 2, [=] (Args a) {
         Value v = new_value(1); 
 
         if(!check_args(a)) return new_error(BadValue);
@@ -201,18 +177,21 @@ void AstEvaluator::add_builtin_functions() {
         return v;
     }, false});
 
-    new_func("print", {0, MAXINT, [=] (Args a) {
+    scope_stack.new_func("print", {0, MAXINT, [=] (Args a) {
         for(int i = 0; i < a.size(); i++)
             std::cout << a[i] << " ";
         std::cout << std::endl;
         return new_error(NoValue); 
     }, false});
 
-    new_func("trace", {0, 0, [=] (Args a) {print_trace(); return new_error(NoValue);}, false});
+    scope_stack.new_func("trace", {0, 0, [=] (Args a) {
+            scope_stack.print_trace();
+            return new_error(NoValue);
+            }, false});
 
 
     // TODO: implement readln function
-    new_func("readln", {1, MAXINT, [=] (Args a) {
+    scope_stack.new_func("readln", {1, MAXINT, [=] (Args a) {
         for(int i = 0; i < a.size(); i++) {
             std::string str;
             std::getline(std::cin, str);
@@ -239,14 +218,14 @@ void AstEvaluator::add_builtin_functions() {
         return new_error(NoValue);        
     }, true});
 
-    new_func("read", {1, MAXINT, [=] (Args a) {
+    scope_stack.new_func("read", {1, MAXINT, [=] (Args a) {
             for(int i = 0; i < a.size(); i++) {
                 
             }
             return new_error(UnknownSym); 
     }, true});
 
-    new_func("import", {1, 1, [=] (Args a) {
+    scope_stack.new_func("import", {1, 1, [=] (Args a) {
 
         if(a[0]->type != ValueTypeString)
             return new_error(BadValue);
@@ -281,52 +260,6 @@ Value doit(Value a, std::string o, Value b) {
     return new_error(BadOp);
 }
 
-Value AstEvaluator::eval_int(std::string str) {
-    return new_value(std::atoi(str.c_str()));
-}
-//
-//Args AstEvaluator::eval_args(AstNode node) {
-//    Args args;
-//
-//    if(std::strstr(node->tag, "noarg")) {
-//        return Args{};
-//    }
-//
-//    if(!std::strstr(node->tag, "args"))
-//        return Args{eval(node)};
-//
-//    else if(node->children_num == 0) {
-//        AstNodeT as = new mpc_ast_t;
-//        std::memcpy(as, node, sizeof(mpc_ast_t));
-//
-//        Value val = eval(as);
-//        delete as;
-//        return Args{val};
-//    }
-//
-//
-//    for(int i = 0; i < node->children_num; i += 2)
-//        args.push_back(eval(node->children[i]));
-//
-//    return args;
-//}
-//
-//Args AstEvaluator::eval_args_identifiers(AstNodeT node) {
-//    Args args;
-//
-//    if(std::strstr(node->tag, "noarg"))
-//        return Args{};
-//
-//    if(!std::strstr(node->tag, "args") || node->children_num == 0)
-//        return Args{new_value(String(node->contents))};
-//
-//
-//    for(int i = 0; i < node->children_num; i += 2)
-//        args.push_back(new_value(String(node->children[i]->contents)));
-//
-//    return args;
-//}
-
 bool AstEvaluator::check_args(Args a) {
     for(auto arg : a)
         if(arg->type == ValueTypeError) return false;
@@ -335,24 +268,9 @@ bool AstEvaluator::check_args(Args a) {
 }
 
 
-List AstEvaluator::eval_list(AstNode nnode) {
-    auto node = convert<_AstList>(nnode);
-
-    List lst;
-    for(auto x : node->elems)
-        lst.push_back(eval(x));
-
-    return lst;
-}
-
-Value AstEvaluator::eval_bool(std::string str) {
-    if(str == "false") return new_bvalue(false);
-    else return new_bvalue(true);
-}
-
-Value AstEvaluator::eval_func(AstNode nnode) {
+Value AstEvaluator::call_function(AstNode nnode) {
     auto node = convert<_AstFunctionCall>(nnode);
-    auto fn = get_func(node->name);
+    auto fn = scope_stack.get_func(node->name);
 
     Args args;
 
@@ -368,11 +286,6 @@ Value AstEvaluator::eval_func(AstNode nnode) {
     else
         return new_error(ArgumentNumberMismatch);
     
-}
-
-Value AstEvaluator::eval_comp(AstNode nnode) {
-    auto node = convert<_AstOperation> (nnode);
-    return doit(eval(node->left), node->op, eval(node->right));
 }
 
 Value AstEvaluator::eval_if(AstNode nnode) {
@@ -415,7 +328,7 @@ Value AstEvaluator::eval_while(AstNode nnode) {
 }
 
 Value AstEvaluator::eval_listq(AstListQ listq) {
-    Value arr = get_var(listq->name);
+    Value arr = scope_stack.get_var(listq->name);
 
     for(auto index : listq->indices) {
         Value ind_val = eval(index);
@@ -461,12 +374,9 @@ Value AstEvaluator::eval_classref(AstClassReference clref) {
                 auto it = sc.vars.find(listq->name);
                 if(it == sc.vars.end()) return unknownsym;
 
-                sc.parent_scope = current_scope;
-                current_scope = &sc;
-
+                scope_stack.push_scope(sc);
                 arr = eval_listq(listq);
-
-                current_scope = current_scope->parent_scope;
+                scope_stack.pop_scope();
                 break;
             }
 
@@ -475,50 +385,6 @@ Value AstEvaluator::eval_classref(AstClassReference clref) {
 
         }
     }
-
-//    switch(first->tag) {
-//        case AstTagListQ:
-//            arr = eval_listq(convert<_AstListQ>(first));
-//            break;
-//        case AstTagVariable:
-//            arr = get_var(convert<_AstVariable>(first)->name);
-//            break;
-//
-//        case 
-//
-//        default:
-//            std::cout << "using refs on non-reference type"<< std::endl;
-//            arr = badvalue;
-//    }
-//
-//    if(arr->type == ValueTypeError) return badvalue;
-//
-//    for(int i = 1; i < clref->refs.size(); i++) {
-//        if(arr->type != ValueTypeScope) return badvalue; 
-//
-//        Scope& sc = arr->sc;
-//
-//        switch(clref->refs[i]->tag) {
-//            case AstTagVariable: {
-//                auto name = convert<_AstVariable>(clref->refs[i])->name; 
-//
-//                auto it = sc.vars.find(name);
-//                if(it == sc.vars.end()) 
-//                    return unknownsym;
-//
-//                sc.parent_scope = current_scope;
-//                current_scope = &sc;
-//
-//                arr = get_var(name);
-//                break;
-//            }
-//
-//            default:
-//                break;
-//                  
-//        }
-//    }
-//
 
     return arr;
 }
@@ -537,7 +403,7 @@ Value AstEvaluator::eval_assignment(AstAssignment node) {
         case AstTagVariable: {
             auto name = convert<_AstVariable>(node->left_side)->name;
 
-            Value left = get_var(convert<_AstVariable>(node->left_side)->name);
+            Value left = scope_stack.get_var(convert<_AstVariable>(node->left_side)->name);
             if(left->type == ValueTypeError && left->error == UnknownSym) return unknownsym;
 
             *left = *val;
@@ -562,14 +428,14 @@ Value AstEvaluator::eval_vardecl(AstVariableDeclaration node) {
                     continue;
                 }
 
-                new_var(convert<_AstVariable>(var->left_side)->name, new_error(NoValue));
+                scope_stack.new_var(convert<_AstVariable>(var->left_side)->name, new_error(NoValue));
                 eval_assignment(var);
 
                 break;
             }
 
             case AstTagVariable:
-                new_var(convert<_AstVariable>(node->children[i])->name, new_error(NoValue));
+                scope_stack.new_var(convert<_AstVariable>(node->children[i])->name, new_error(NoValue));
                 break;
 
             default:
@@ -588,14 +454,23 @@ Value AstEvaluator::eval(AstNode node) {
         case AstTagValue:
             return convert<_AstValue>(node)->value;
 
-        case AstTagList:
-            return new_value(eval_list(node));
+        case AstTagList: {
+            auto lstnode = convert<_AstList>(node);
+
+            List lst;
+            for(auto x : lstnode->elems)
+                lst.push_back(eval(x));
+
+            return new_value(lst);
+        }
 
         case AstTagVariable:
-            return get_var(convert<_AstVariable>(node)->name);
+            return scope_stack.get_var(convert<_AstVariable>(node)->name);
 
-        case AstTagOperation:
-            return eval_comp(node);
+        case AstTagOperation: {
+            auto op = convert<_AstOperation>(node);
+            return doit(eval(op->left), op->op, eval(op->right));
+        }
 
         case AstTagFoldExpression: {
             auto expr = convert<_AstFoldExpr>(node);
@@ -628,7 +503,7 @@ Value AstEvaluator::eval(AstNode node) {
         }
 
         case AstTagFunctionCall:
-            return eval_func(node);
+            return call_function(node);
 
         case AstTagReturn: {
             Value v = eval(convert<_AstReturn>(node)->expr);
@@ -653,17 +528,17 @@ Value AstEvaluator::eval(AstNode node) {
 }
 
 Value AstEvaluator::eval_block(AstBlock node, std::string new_scope, bool create_scope) {
-    if(create_scope) create_new_scope(new_scope);
+    if(create_scope) scope_stack.push_scope(new_scope);
 
     for(int i = 0; i < node->children.size(); i++) {
         Value v = eval(node->children[i]);
         if(v->return_value) {
-            if(create_scope) pop_scope();
+            if(create_scope) scope_stack.pop_scope();
             return v;
         }
     }
 
-    if(create_scope) pop_scope();
+    if(create_scope) scope_stack.pop_scope();
     return new_error(NoValue);
 }
 

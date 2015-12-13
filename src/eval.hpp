@@ -15,26 +15,29 @@ extern "C" {
 namespace haxy {
 
 class AstEvaluator { 
-    Scope *current_scope = nullptr;
+    struct ScopeStack {
+        private:
+        std::vector<Scope> stack;
+
+        public:
+        Value get_var(std::string name);
+        void  new_var(std::string name, Value val);
+
+        Func get_func(std::string name);
+        void new_func(std::string name, Func f);
+    
+        void  push_scope(Scope s); /* push an existing scope */
+        void  push_scope(std::string name); /* create and push a scope */
+        void  pop_scope(); /* remove scope */
+        Scope get_top_scope(); /* returns the last scope */
+
+        void print_trace();
+    } scope_stack;
 
     mpc_parser_t *parser, *expr_parser;
 
-    void   new_var(std::string name, Value val);
-    void   set_var(std::string name, Value val);
-    Value  get_var(std::string name);
-
-    Func get_func(std::string name);
-
     void new_func(AstNode node);
     void create_constructor(AstNode node);
-    void new_func(std::string name, Func f);
-
-
-    void pop_scope();
-    void print_trace();
-
-    Value eval_int(std::string str);
-    Value eval_bool(std::string str);
 
     List  eval_list(AstNode node);
 
@@ -42,9 +45,8 @@ class AstEvaluator {
     Args  eval_args(const std::vector<AstNode>& args, bool by_ident = false);
 
 
-    Value call_func(AstFunctionDefinition code, Args args);
-    Value eval_func(AstNode node);
-    Value eval_comp(AstNode node);
+    Value function_call_wrapper(AstFunctionDefinition code, Args args);
+    Value call_function(AstNode node);
 
     /* evaluates a series of instructions
      * and can introduce a new scope */
@@ -60,8 +62,6 @@ class AstEvaluator {
 
     public:
     void add_builtin_functions();
-    void create_new_scope(std::string name);
-
     void init(mpc_parser_t *parser, mpc_parser_t *expr_parser);
 
     void eval_file(std::string name);
