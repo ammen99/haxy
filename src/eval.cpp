@@ -268,10 +268,7 @@ bool AstEvaluator::check_args(Args a) {
 }
 
 
-Value AstEvaluator::call_function(AstNode nnode) {
-    auto node = convert<_AstFunctionCall>(nnode);
-    auto fn = scope_stack.get_func(node->name);
-
+Value AstEvaluator::call_function(Func fn, AstFunctionCall node) {
     Args args;
 
     if(fn.eval_args_by_identifier)
@@ -286,6 +283,11 @@ Value AstEvaluator::call_function(AstNode nnode) {
     else
         return new_error(ArgumentNumberMismatch);
     
+}
+
+Value AstEvaluator::call_function(AstNode node) {
+    auto call = convert<_AstFunctionCall>(node);
+    return call_function(scope_stack.get_func(call->name), call);
 }
 
 Value AstEvaluator::eval_if(AstNode nnode) {
@@ -327,9 +329,7 @@ Value AstEvaluator::eval_while(AstNode nnode) {
     return new_error(NoValue);
 }
 
-Value AstEvaluator::eval_listq(AstListQ listq) {
-    Value arr = scope_stack.get_var(listq->name);
-
+Value AstEvaluator::eval_listq(Value arr, AstListQ listq) {
     for(auto index : listq->indices) {
         Value ind_val = eval(index);
         if(ind_val->type != ValueTypeNumber || arr->type != ValueTypeList)
@@ -345,6 +345,10 @@ Value AstEvaluator::eval_listq(AstListQ listq) {
     }
 
     return arr;
+}
+
+Value AstEvaluator::eval_listq(AstListQ listq) {
+    return eval_listq(scope_stack.get_var(listq->name), listq);
 }
 
 Value AstEvaluator::eval_classref(AstClassReference clref) {
@@ -374,9 +378,16 @@ Value AstEvaluator::eval_classref(AstClassReference clref) {
                 auto it = sc.vars.find(listq->name);
                 if(it == sc.vars.end()) return unknownsym;
 
-                scope_stack.push_scope(sc);
-                arr = eval_listq(listq);
-                scope_stack.pop_scope();
+                arr = eval_listq(it->second, listq);
+                break;
+            }
+
+            case AstTagFunctionCall: {
+                auto fcall = convert<_AstFunctionCall>(clref->refs[i]);
+                auto it = sc.funcs.find(fcall->name); 
+                if(it == sc.funcs.end()) return unknownsym;
+
+                arr = call_function(it->second, fcall);
                 break;
             }
 

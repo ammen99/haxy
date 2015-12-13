@@ -46,13 +46,18 @@ class AstEvaluator {
 
 
     Value function_call_wrapper(AstFunctionDefinition code, Args args);
-    Value call_function(AstNode node);
+
+
+    Value call_function(AstNode node); /* function is in current scope */
+    Value call_function(Func fn, AstFunctionCall node); /* function is not in current scope */
 
     /* evaluates a series of instructions
      * and can introduce a new scope */
     Value eval_block(AstBlock node, std::string new_scope = "__unnamed__", bool create = true);
 
-    Value eval_listq(AstListQ node);
+    Value eval_listq(Value lst, AstListQ node); /* used when the list is not in current scope */
+    Value eval_listq(AstListQ node); /* evaluate listq when the list is in current scope */
+
     Value eval_classref(AstClassReference node);
     Value eval_assignment(AstAssignment node);
     Value eval_vardecl(AstVariableDeclaration node);
