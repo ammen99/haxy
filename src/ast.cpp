@@ -1,16 +1,12 @@
 #include "ast.hpp"
 #include <sstream>
 
-#define new_node(name) AstNode name = std::make_shared<_AstNode>();
-#define new_astvalue(name) AstValue name = std::make_shared<_AstValue>(); \
+#define new_node(name, type) type name = ptr::shared_ptr<_ ## type>();
+#define new_astvalue(name) AstValue name = ptr::shared_ptr<_AstValue>(); \
                            name->tag = AstTagValue; \
 
 
 namespace haxy {
-    template<class T> 
-    inline std::shared_ptr<T> convert(AstNode node) {
-        return std::static_pointer_cast<T>(node);
-    }
 
     AstNode AstGenerator::generate (AstNodeT root) {
 
@@ -43,14 +39,14 @@ namespace haxy {
         }
 
         else if(std::strstr(root->tag, "return")) {
-            auto node = std::make_shared<_AstReturn>();
+            new_node(node, AstReturn);
             node->tag = AstTagReturn;
             node->expr = generate(root->children[1]);
             return node;
         }
 
         else if(std::strstr(root->tag, "listq")) {
-            auto node = std::make_shared<_AstListQ>();
+            new_node(node, AstListQ);
 
             node->tag = AstTagListQ;
             node->name = root->children[0]->contents;
@@ -65,7 +61,7 @@ namespace haxy {
             return generate_vardecl(root);
 
         else if(std::strstr(root->tag, "assign")) {
-            auto node = std::make_shared<_AstAssignment>();
+            new_node(node, AstAssignment);
             node->tag = AstTagAssignment;
 
             node->left_side = generate(root->children[0]);
@@ -78,12 +74,12 @@ namespace haxy {
             return generate_if(root);
 
         else if(std::strstr(root->tag, "if")) {
-            auto node = std::make_shared<_AstConditional>();
+            new_node(node, AstConditional);
             node->tag = AstTagConditional;
 
-            auto if_node = std::make_shared<_AstIf>();
+            new_node(if_node, AstIf);
             if_node->type = IfTypeIf;
-            if_node->expr = convert<_AstNode>(generate(root->children[1]));
+            if_node->expr = generate(root->children[1]);
             if_node->block = generate_block(root->children[2]);
 
             node->children.push_back(if_node);
@@ -95,7 +91,7 @@ namespace haxy {
             return generate_while(root);
 
         else if(std::strstr(root->tag, "ident")) {
-            auto node = std::make_shared<_AstVariable>();
+            new_node(node, AstVariable);
             node->tag = AstTagVariable;
             node->name = root->contents;
 
@@ -108,12 +104,12 @@ namespace haxy {
             return generate_comp(root);
 
         else if(std::strstr(root->tag, "expr")) {
-            auto node = std::make_shared<_AstFoldExpr>();
+            new_node(node, AstFoldExpr);
             node->tag = AstTagFoldExpression;
             node->op = root->children[1]->contents;
 
             for(int i = 2; i < root->children_num - 1; i++) {
-                node->args.push_back(convert<_AstFoldExpr>(generate(root->children[i]))); 
+                node->args.push_back((generate(root->children[i]))); 
             }
 
             return node;
@@ -132,7 +128,7 @@ namespace haxy {
             return generate(root->children[0]);
 
         else if(std::strstr(root->tag, "class")) {
-            auto node = std::make_shared<_AstClass>(); 
+            new_node(node, AstClass);
             node->tag = AstTagClass;
             node->name = root->children[1]->contents;
 
@@ -148,7 +144,7 @@ namespace haxy {
         }
 
         else if(std::strstr(root->tag, "member")) {
-            auto node = std::make_shared<_AstClassReference>(); 
+            new_node(node, AstClassReference);
             node->tag = AstTagClassRef;
 
             for(int i = 1; i < root->children_num; i += 2)
@@ -157,7 +153,7 @@ namespace haxy {
             return node;
         }
 
-        auto node = std::make_shared<_AstValue>();
+        new_node(node, AstValue);
         node->tag = AstTagValue;
         node->value = new_error(NoValue);
 
@@ -165,7 +161,7 @@ namespace haxy {
     }
 
     AstBlock AstGenerator::generate_block(AstNodeT root) {
-        auto node = std::make_shared<_AstBlock>();
+        new_node(node, AstBlock);
         node->tag = AstTagBlock;
 
         for(int i = 1; i < root->children_num - 1; i++)
@@ -175,7 +171,7 @@ namespace haxy {
     }
 
     AstNode AstGenerator::generate_comp(AstNodeT root) {
-        auto node = std::make_shared<_AstOperation>(); 
+        new_node(node, AstOperation);
         node->tag = AstTagOperation;
 
         node->left = generate(root->children[0]);
@@ -191,16 +187,16 @@ namespace haxy {
 
         if(std::strstr(root->tag, "noarg")) {}
         else if(!std::strstr(root->tag, "args") || root->children_num == 0)
-            v = {convert<_AstExpr>(generate(root))};
+            v = {generate(root)};
         else 
             for(int i = 0; i < root->children_num; i += 2)
-                v.push_back(convert<_AstExpr>(generate(root->children[i])));
+                v.push_back(generate(root->children[i]));
         return v;
 
     }
 
     AstNode AstGenerator::generate_list(AstNodeT root) {
-        auto node = std::make_shared<_AstList>();
+        new_node(node, AstList);
         node->tag = AstTagList;
 
         node->elems = parse_args(root->children[1]);
@@ -210,28 +206,24 @@ namespace haxy {
 
 
     AstVariableDeclaration AstGenerator::generate_vardecl(AstNodeT root) {
-        auto node = std::make_shared<_AstVariableDeclaration>();
+        new_node(node, AstVariableDeclaration);
         node->tag = AstTagVariableDeclaration;
 
         for(int i = 1; i < root->children_num; i += 2) {
 
             if(std::strstr(root->children[i]->tag, "assign")) { // initialize variable
-                auto child = std::make_shared<_AstAssignment>();
 
+                new_node(child, AstAssignment);
                 child->tag = AstTagAssignment;
 
-                auto left = std::make_shared<_AstVariable>();
-                left->tag = AstTagVariable;
-                left->name = root->children[i]->children[0]->contents;
-
-                child->left_side = left;
+                child->left_side = generate(root->children[i]->children[0]);
                 child->right_side = generate(root->children[i]->children[2]);
 
                 node->children.push_back(child);
             }
 
             else {
-                auto child = std::make_shared<_AstVariable>();
+                new_node(child, AstVariable);
                 child->tag = AstTagVariable;
                 child->name = root->children[i]->contents;
 
@@ -244,11 +236,11 @@ namespace haxy {
     }
 
     AstNode AstGenerator::generate_if(AstNodeT root) {
-        auto node = std::make_shared<_AstConditional>();         
+        new_node(node, AstConditional);
         node->tag = AstTagConditional;
 
         for(int i = 0; i < root->children_num; i++) {
-            auto child = std::make_shared<_AstIf>();
+            new_node(child, AstIf);
             if(std::strstr(root->children[i]->tag, "else")) {
                 child->type = IfTypeElse;
                 child->block = generate_block(root->children[i]->children[1]);
@@ -272,7 +264,7 @@ namespace haxy {
     }
 
     AstNode AstGenerator::generate_while(AstNodeT root) {
-        auto node = std::make_shared<_AstWhile>(); 
+        new_node(node, AstWhile);
         node->tag = AstTagWhile;
 
         node->condition = generate(root->children[1]);
@@ -282,7 +274,7 @@ namespace haxy {
     }
 
     AstFunctionDefinition AstGenerator::generate_func_def(AstNodeT root) {
-        auto node = std::make_shared<_AstFunctionDefinition> ();
+        new_node(node, AstFunctionDefinition);
         node->tag = AstTagFunctionDefinition;
         node->name = root->children[1]->children[0]->contents;
 
@@ -298,7 +290,7 @@ namespace haxy {
     }
 
     AstNode AstGenerator::generate_func_call(AstNodeT root) {
-        auto node = std::make_shared<_AstFunctionCall>(); 
+        new_node(node, AstFunctionCall);
         node->tag = AstTagFunctionCall;
 
         node->name = root->children[0]->contents;
@@ -332,18 +324,18 @@ namespace haxy {
         switch(node->tag) {
             case AstTagValue:
                 write("value = ", depth);
-                write(convert<_AstValue>(node)->value, 0);
+                write(node.convert<_AstValue>()->value, 0);
                 write("\n", 0);
                 break;
             case AstTagVariable:
                 write("var(name = ", depth);
-                write(convert<_AstVariable>(node)->name, 0);
+                write(node.convert<_AstVariable>()->name, 0);
                 write(")\n", 0);
                 break;
 
             case AstTagList: {
                 write("list:\n", depth);
-                auto list = convert<_AstList>(node);
+                auto list = node.convert<_AstList>();
                 for(int i = 0; i < list->elems.size(); i++) {
                     write(list->elems[i], depth + 4);
                 };
@@ -351,7 +343,7 @@ namespace haxy {
             }
 
             case AstTagListQ: {
-                auto listq = convert<_AstListQ>(node);
+                auto listq = node.convert<_AstListQ>();
                 write("listq:\n", depth);
                 write("name = ", depth + 4);
                 write(listq->name, 0);
@@ -365,7 +357,7 @@ namespace haxy {
             }
 
             case AstTagWhile: {
-                auto wh = convert<_AstWhile>(node);
+                auto wh = node.convert<_AstWhile>();
                 write("while:\n", depth);
                 write("condition:\n", depth + 4);
                 write(wh->condition, depth + 8);
@@ -374,7 +366,7 @@ namespace haxy {
             }
 
             case AstTagBlock: {
-                auto block = convert<_AstBlock>(node);
+                auto block = node.convert<_AstBlock>();
                 write("block:\n", depth);
                 for(int i = 0; i < block->children.size(); i++)
                     write(block->children[i], depth + 4);
@@ -385,7 +377,7 @@ namespace haxy {
             case AstTagReturn: {
                 write("return: \n", depth);
                 write("value = ", depth + 4);
-                write(convert<_AstReturn>(node)->expr, 0);
+                write(node.convert<_AstReturn>()->expr, 0);
                 break;
             }
 
@@ -393,7 +385,7 @@ namespace haxy {
                 write("newfunc:\n", depth);                               
                 write("name = ", depth + 4);
 
-                auto fun = convert<_AstFunctionDefinition>(node);
+                auto fun = node.convert<_AstFunctionDefinition>();
                 write(fun->name);
                 out << "\n";
                 write("args = (", depth + 4);
@@ -412,7 +404,7 @@ namespace haxy {
                 write("assignment:\n", depth);                               
                 write("left_side = \n", depth + 4);
                 
-                auto assign = convert<_AstAssignment>(node);
+                auto assign = node.convert<_AstAssignment>();
                 write(assign->left_side, depth + 8);
 
                 write("left_side = \n", depth + 4);
@@ -423,7 +415,7 @@ namespace haxy {
             case AstTagVariableDeclaration: {
                 write("vardecl:\n", depth);
 
-                auto decl = convert<_AstVariableDeclaration>(node);
+                auto decl = node.convert<_AstVariableDeclaration>();
                 for(int i = 0; i < decl->children.size(); i++) {
                     write(decl->children[i], depth + 4);
                 }
@@ -434,7 +426,7 @@ namespace haxy {
                 write("foldexpr:\n", depth);                           
                 write("op = ", depth + 4);
 
-                auto expr = convert<_AstFoldExpr>(node);
+                auto expr = node.convert<_AstFoldExpr>();
 
                 write(expr->op, 0);
                 out << "\n";
@@ -446,7 +438,7 @@ namespace haxy {
             }
 
             case AstTagFunctionCall: {
-                auto funcall = convert<_AstFunctionCall>(node);
+                auto funcall = node.convert<_AstFunctionCall>();
 
                 write("call " + funcall->name + ":\n", depth);
                 for(int i = 0; i < funcall->args.size(); i++)
@@ -455,7 +447,7 @@ namespace haxy {
             }
 
             case AstTagConditional: {
-                auto cond = convert<_AstConditional>(node);                        
+                auto cond = node.convert<_AstConditional>();                        
                 write("conditional:\n", depth);
 
                 for(int i = 0; i < cond->children.size(); i++) {
@@ -481,7 +473,7 @@ namespace haxy {
             }
 
             case AstTagOperation: {
-                auto op = convert<_AstOperation>(node);
+                auto op = node.convert<_AstOperation>();
                 write("operation: ", depth);
                 write(op->op + "\n", 0);
                 write(op->left, depth + 4);
@@ -490,7 +482,7 @@ namespace haxy {
             }
 
             case AstTagClass: {
-                auto cl = convert<_AstClass>(node);
+                auto cl = node.convert<_AstClass>();
 
                 write("class:\n", depth);  
                 write("name = " + cl->name + "\n", depth + 4);
@@ -503,7 +495,7 @@ namespace haxy {
             }
 
             case AstTagClassRef: {
-                auto clref = convert<_AstClassReference>(node);                     
+                auto clref = node.convert<_AstClassReference>();                     
 
                 write("class ref:\n", depth);
                 for(auto x : clref->refs)
@@ -525,255 +517,5 @@ namespace haxy {
     /* begin AstWriter */
 
 #undef out
-#define out (!write_mainstream ? topstream : mainstream)
-//#define out (std::cout)
-   
-    void AstCppTranslator::write(std::string str, int depth) {
-        for(int i = 0; i < depth; i++) out << " ";
-        out << str;
-    }
-
-    void AstCppTranslator::write(Value v, int depth) {
-        for(int i = 0; i < depth; i++) out << " ";
-        switch(v->type) {
-            case ValueTypeError:
-                std::cerr << "Error while translating, exiting" << std::endl;
-                std::exit(-1);
-                break;
-
-            case ValueTypeNumber:
-                out << "new_value(" << v->long_val << ")";
-                break;
-
-            case ValueTypeDbl:
-                out << "new_dvalue(" << v->dbl << ")";
-                break;
-
-            case ValueTypeBool:
-                out << "new_bvalue(" << v->long_val << ")";
-                break;
-
-            case ValueTypeString:
-                out << "new_value(String{\"" << v->str << "\"})";
-                break;
-
-            case ValueTypeList:
-                out << "new_value(List{";
-                for(int i = 0; i < v->lst.size(); i++) {
-                    write(v->lst[i]);
-                    if(i != v->lst.size() - 1) out << ", ";
-                }
-
-                out << "})";
-                break;
-
-            default:
-                break;
-        }
-    }
-
-    void AstCppTranslator::write(AstNode node, int depth, bool endl) {
-        switch(node->tag) {
-
-            if(toplevel) write_mainstream = true;
-
-            case AstTagValue:
-                write(convert<_AstValue>(node)->value, 0);
-                break;
-
-            case AstTagOperation: {
-                auto op = convert<_AstOperation>(node);
-                if(op->op == "**") {
-                    write("times(", depth); 
-                    write(op->left, 0, false);
-                    write(", ", 0);
-                    write(op->right, 0, false);
-                    write(")", 0);
-                }
-                else {
-                    write(op->left, depth, false);
-                    write(" " + op->op + " ", 0);
-                    write(op->right, 0, false);
-                }
-                break;                      
-            }
-
-            case AstTagVariable:
-                write(convert<_AstVariable>(node)->name, 0);
-                break;
-
-            case AstTagAssignment: {
-                auto assign = convert<_AstAssignment>(node);
-                write(assign->left_side, depth, false);
-                write(" = ", 0);
-                write(assign->right_side, 0, false);
-                break;
-            }
-
-            case AstTagList: {
-                write("new_value(List{", depth);
-                auto list = convert<_AstList>(node);
-                for(int i = 0; i < list->elems.size(); i++) {
-                    write(list->elems[i], depth + 4, false);
-                    if(i != list->elems.size() - 1) out << ", ";
-                };
-                out << "})";
-                break;
-            }
-
-            case AstTagListQ: {
-                auto listq = convert<_AstListQ>(node);
-
-                write(listq->name, 0);
-                for(int i = 0; i < listq->indices.size(); i++)
-                    out << "[",
-                    write(listq->indices[i], 0, false),
-                    out << "]";
-                break;
-            }
-
-            case AstTagReturn: {
-                write("return ", depth);
-                write(convert<_AstReturn>(node)->expr, 0, false);
-                out << ";\n";
-                break;
-            }
-
-            // TODO: XXX: implement fold expressions 
-            case AstTagFoldExpression: {
-                write("foldexpr:\n", depth);                           
-                write("op = ", depth + 4);
-
-                auto expr = convert<_AstFoldExpr>(node);
-
-                write(expr->op, 0);
-                out << "\n";
-
-                for(int i = 0; i < expr->args.size(); i++)
-                    write(expr->args[i], depth + 4, false);
-                
-                break;
-            }
-
-            case AstTagFunctionCall: {
-                auto funcall = convert<_AstFunctionCall>(node);
-
-                write(funcall->name + "(", depth);
-                for(int i = 0; i < funcall->args.size(); i++) {
-                    write(funcall->args[i], 0, false);
-                    if(i != funcall->args.size() - 1) out << ", ";
-                }
-                write(")", 0);
-                break;                         
-            }
-
-
-            case AstTagConditional: {
-                auto cond = convert<_AstConditional>(node);                        
-
-                for(int i = 0; i < cond->children.size(); i++) {
-                    if(cond->children[i]->type == IfTypeIf) {
-                        write("if((", depth);
-                        write(cond->children[i]->expr, 0, false);
-                        out << ").to_bool())";
-                        write(cond->children[i]->block, depth + 4, true);
-                    }
-
-                    if(cond->children[i]->type == IfTypeElif) {
-                        write("else if((", depth);
-                        write(cond->children[i]->expr, depth + 4, false);
-                        out << ").to_bool())";
-                        write(cond->children[i]->block, depth + 4, true);                   
-                    }
-
-                    if(cond->children[i]->type == IfTypeElse) {
-                        write("else", depth);
-                        write(cond->children[i]->block, depth + 4, true);
-                    }
-                }
-
-                return;
-            }
-
-
-            case AstTagWhile: {
-                auto wh = convert<_AstWhile>(node);
-                write("while((", depth);
-                write(wh->condition, 0, false);
-                write(").to_bool())", 0);
-                write(wh->action, depth + 4, false);
-                return;
-            }
-
-            case AstTagBlock: {
-                auto block = convert<_AstBlock>(node);
-                write("{\n", 0);
-                for(int i = 0; i < block->children.size(); i++) {
-                    write(block->children[i], depth, true);
-                }
-                write("}\n", depth - 4);
-            
-                return;
-            }
-
-            case AstTagFunctionDefinition: {
-                auto fun = convert<_AstFunctionDefinition>(node);
-
-                auto old_toplevel = toplevel;
-                if(toplevel) write_mainstream = false;
-                toplevel = false;
-
-                write("Value ", depth);                               
-                write(fun->name + "(", 0);
-
-                for(int i = 0; i < fun->args.size(); i++) {
-                    write("Value " + fun->args[i], 0);
-                    if(i != fun->args.size() - 1) write(", ", 0);
-                }
-
-                out << ") ";
-                write(fun->action, depth + 4, true);
-
-                toplevel = old_toplevel;
-                if(old_toplevel) write_mainstream = true;
-                return;
-            }
-
-            case AstTagVariableDeclaration: {
-
-                auto old_toplevel = toplevel;
-                if(toplevel) write_mainstream = false;
-                toplevel = false;
-
-                write("Value ", depth);
-
-                auto decl = convert<_AstVariableDeclaration>(node);
-                for(int i = 0; i < decl->children.size(); i++) {
-                    write(decl->children[i], 0, false);
-                    if(i != decl->children.size() - 1)
-                        out << ", ";
-                }
-
-                out << ";\n";
-                toplevel = old_toplevel;
-                if(old_toplevel) write_mainstream = true;
-
-                return;
-            }
-
-            default: {
-                break;
-            }
-        }
-
-        if(endl) out << ";\n";
-    }
-
-    void AstCppTranslator::write_tree(AstNode n) {
-        write(n, 0, true);
-        std::cout << header << std::endl;
-        std::cout << topstream.str() << std::endl;
-        std::cout << "int main() " << mainstream.str() << std::endl;
-    }    /* end AstWriter */
 }
 

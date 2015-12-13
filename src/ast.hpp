@@ -8,10 +8,13 @@
 #include <cstring>
 
 #include "val.hpp"
-#include "mpc.h"
+
+extern "C" {
+#include "mpc/mpc.h"
+}
 
 #define ast(x) (mpc_ast_t*)(x)
-#define decl_shared_ptr(name) using name = std::shared_ptr< _ ## name>
+#define decl_shared_ptr(name) using name = ptr::shared_ptr< _ ## name>
 std::string load_file(std::string name);
 using AstNodeT = mpc_ast_t*;
 
@@ -123,6 +126,7 @@ namespace haxy {
         std::vector<AstVariableDeclaration> vars;
         std::vector<AstFunctionDefinition> funcs;
     };
+    decl_shared_ptr(AstClass);
 
     enum IfType {
         IfTypeIf   = 1,
@@ -175,8 +179,6 @@ namespace haxy {
         static AstNode parse_file(AstNodeT toplevel);
     };
 
-    template<class T> std::shared_ptr<T> convert(AstNode node);
-
     class AstWriter {
         std::fstream stream;
         bool to_stdout;
@@ -194,23 +196,6 @@ namespace haxy {
         ~AstWriter() { if(!to_stdout) stream.close(); }
     };
 
-    class AstCppTranslator {
-        std::ostringstream mainstream, topstream;
-        bool toplevel = true;
-        bool write_mainstream = true;
-
-        void write(std::string str, int depth = 0);
-        void write(Value v, int depth = 0);
-        void write(AstNode node, int depth, bool endl);
-
-        std::string header = "#include <builtin.hpp>";
-
-        public:
-        AstCppTranslator() {
-        }
-
-        void write_tree(AstNode node);
-    };
 }
 
 #endif

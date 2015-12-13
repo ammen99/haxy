@@ -10,6 +10,9 @@
 #include <list>
 #include <unordered_map>
 
+#include "sherwood_map/sherwood_map.hpp"
+
+
 #include "shared_ptr.hpp"
 
 enum ValueType { 
@@ -33,7 +36,7 @@ using List = std::vector<Value>;
 using String = std::string;
 using Args = std::vector<Value>;
 
-struct Func {
+struct _Func {
     size_t min_arg;
     size_t max_arg;
 
@@ -42,10 +45,11 @@ struct Func {
     bool eval_args_by_identifier;
 };
 
+using Func = ptr::shared_ptr<_Func>;
 
 struct Scope {
-    std::unordered_map<std::string, Value> vars;
-    std::unordered_map<std::string, Func> funcs;
+    sherwood_map<std::string, Value> vars;
+    sherwood_map<std::string, Func> funcs;
 
     std::string name;
     Scope *parent_scope = nullptr;

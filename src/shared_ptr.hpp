@@ -1,7 +1,8 @@
 #include <iostream>
 #include <stack>
+#include <type_traits>
 
-#define MEMPOOL_INITIAL_CHUNKS 2
+#define MEMPOOL_INITIAL_CHUNKS 128
 #define MEMPOOL_CHUNK 8
 #define MAX_CHUNKS (1024 * 1024)
 
@@ -76,6 +77,13 @@ namespace ptr {
     extern memory_pool mempool;
 
     template<class T> class shared_ptr {
+
+        template<class U> friend class shared_ptr;
+
+        /* from STL shared_ptr<T> */
+        template<class U>
+        using CanConvert = typename std::enable_if<std::is_convertible<U, T>::value>::type;
+
         private:
             int *refcnt;
 
@@ -84,6 +92,11 @@ namespace ptr {
             inline void self_destroy() {
                 mempool.rem_chunk(refcnt);
                 delete ptr;
+            }
+
+        private:
+            shared_ptr(int *_refcnt, T* p) : refcnt(_refcnt), ptr(p) {
+                ++*refcnt; 
             }
 
         public:
@@ -105,8 +118,25 @@ namespace ptr {
                 ++*refcnt;
             }
 
+            template<typename T1, typename = CanConvert<T1>>
+            shared_ptr(const shared_ptr<T1>& other) {
+                refcnt = other.refcnt; 
+                ptr = other.ptr;
+
+                ++*refcnt;
+            }
+
             shared_ptr(const shared_ptr<T>&& other) {
                 refcnt = other.refcnt;
+                ptr = other.ptr;
+
+                ++*refcnt;
+            }
+
+
+            template<typename T1, typename = CanConvert<T1>>
+            shared_ptr(const shared_ptr<T1>&& other) {
+                refcnt = other.refcnt; 
                 ptr = other.ptr;
 
                 ++*refcnt;
@@ -126,7 +156,36 @@ namespace ptr {
             }
 
 
+            template<typename T1, typename = CanConvert<T1>>
+            shared_ptr<T> operator=(const shared_ptr<T1>& other) {
+                if(this != &other) {
+                    if(!(--*refcnt))
+                        self_destroy();
+
+                    ptr = other.ptr;
+                    refcnt = other.refcnt;
+                    ++*refcnt;
+                }
+
+                return *this;
+            }
+
             shared_ptr<T> operator=(const shared_ptr<T>&& other) {
+                if(this != &other) {
+                    if(!(--*refcnt))
+                        self_destroy();
+
+                    ptr = other.ptr;
+                    refcnt = other.refcnt;
+                    ++*refcnt;
+                }
+
+                return *this;
+            }
+
+
+            template<typename T1, typename = CanConvert<T1>>
+            shared_ptr<T> operator=(const shared_ptr<T1>&& other) {
                 if(this != &other) {
                     if(!(--*refcnt))
                         self_destroy();
@@ -151,6 +210,11 @@ namespace ptr {
             T* operator->() const {
                 return ptr;
             }
+
+            template<class T1> ptr::shared_ptr<T1> convert() {
+                return shared_ptr<T1>(refcnt, (T1*)(ptr));
+            }
+
     };
 
 

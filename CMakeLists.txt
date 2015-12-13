@@ -13,13 +13,13 @@ find_package(PkgConfig)
 
 # Main executable
 #include_directories(include)
-file(GLOB SOURCES "src/*.c*")
+file(GLOB SOURCES "src/*.cpp" "src/mpc/mpc.c" "src/sherwood_map/sherwood_map.cpp")
 add_executable(haxy ${SOURCES})
 
 # Libraries
-target_compile_options(haxy PRIVATE -pg)
+target_compile_options(haxy PRIVATE)
 target_link_libraries(haxy readline m)
-target_link_libraries(haxy -pg)
+target_link_libraries(haxy)
 
 # Installation
 install(TARGETS haxy DESTINATION bin)

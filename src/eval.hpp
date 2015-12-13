@@ -1,13 +1,12 @@
 #ifndef EVAL_H
 #define EVAL_H
-extern "C" {
-#include "mpc.h"
-}
 
 #include <string>
 #include <cstring>
 #include <vector>
 #include <functional>
+
+#include "sherwood_map/sherwood_map.hpp"
 
 #include "val.hpp"
 #include "ast.hpp"

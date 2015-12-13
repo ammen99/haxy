@@ -3,10 +3,6 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 
-extern "C" {
-#include "mpc.h"
-}
-
 #include "val.hpp"
 #include "eval.hpp"
 #include "ast.hpp"
