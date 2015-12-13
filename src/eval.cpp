@@ -383,11 +383,12 @@ Value AstEvaluator::eval_classref(AstClassReference clref) {
             }
 
             case AstTagFunctionCall: {
-                auto fcall = convert<_AstFunctionCall>(clref->refs[i]);
-                auto it = sc.funcs.find(fcall->name); 
-                if(it == sc.funcs.end()) return unknownsym;
 
-                arr = call_function(it->second, fcall);
+                scope_stack.push_scope(sc); 
+
+                arr = call_function(clref->refs[i]);
+
+                scope_stack.pop_scope();
                 break;
             }
 
