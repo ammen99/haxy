@@ -5,7 +5,7 @@
 
 #include "val.hpp"
 #include "eval.hpp"
-#include "ast.hpp"
+#include "byte.hpp"
 
 #define forever while(1)
 std::string load_file(std::string path) {
@@ -53,7 +53,7 @@ int main(int argc, char *argv[]) {
     mpc_parser_t* clss = mpc_new("class");
     mpc_parser_t* memb = mpc_new("member");
 
-    auto lex = load_file("/home/ilex/work/lispy/src/num.lex");
+    auto lex = load_file("/home/ilex/haxy/src/num.lex");
     mpca_lang(MPCA_LANG_DEFAULT, lex.c_str(), clss, lq, ret, wh, assi, felif, elif, elsee, cond, iff, norm,
             comp, gcomp, num, bl, op, body, str, id, 
             arg, args, noarg, func,
@@ -66,17 +66,14 @@ int main(int argc, char *argv[]) {
 
     mpc_result_t res;
     if(mpc_parse("input", src.c_str(), cmd, &res)) {
-        mpc_ast_print(ast(res.output));
+        //mpc_ast_print(ast(res.output));
 
-        std::cout << "gen " << std::endl;
         auto r = haxy::AstGenerator::parse_file((AstNodeT)(res.output));
-
-        std::cout << "wwww" << std::endl;
 
         haxy::AstWriter w;
         w.write_tree(r);
 
-        eval.eval(r);
+        //eval.eval(r);
     }
     else {
         mpc_err_print(res.error),

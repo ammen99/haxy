@@ -179,7 +179,7 @@ namespace haxy {
         static AstNode parse_file(AstNodeT toplevel);
     };
 
-    class AstWriter {
+    class AstPrinter {
         std::fstream stream;
         bool to_stdout;
 
@@ -188,12 +188,12 @@ namespace haxy {
         void write(AstNode node, int depth);
 
         public:
-        AstWriter() :to_stdout(true) {}
-        AstWriter(std::string name) : to_stdout(false) { stream.open(name); }
+        AstPrinter() :to_stdout(true) {}
+        AstPrinter(std::string name) : to_stdout(false) { stream.open(name); }
 
         void write_tree(AstNode root);
 
-        ~AstWriter() { if(!to_stdout) stream.close(); }
+        ~AstPrinter() { if(!to_stdout) stream.close(); }
     };
 
 }

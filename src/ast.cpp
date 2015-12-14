@@ -303,24 +303,19 @@ namespace haxy {
         return generate_block(root);
     }
 
-
-    /* end AstGenerator */
-
-    /* begin AstWriter */
-
 #define out (to_stdout ? std::cout : stream)
    
-    void AstWriter::write(std::string str, int depth) {
+    void AstPrinter::write(std::string str, int depth) {
         for(int i = 0; i < depth; i++) out << " ";
         out << str;
     }
 
-    void AstWriter::write(Value v, int depth) {
+    void AstPrinter::write(Value v, int depth) {
         for(int i = 0; i < depth; i++) out << " ";
         out << v;
     }
 
-    void AstWriter::write(AstNode node, int depth) {
+    void AstPrinter::write(AstNode node, int depth) {
         switch(node->tag) {
             case AstTagValue:
                 write("value = ", depth);
@@ -346,12 +341,10 @@ namespace haxy {
                 auto listq = node.convert<_AstListQ>();
                 write("listq:\n", depth);
                 write("name = ", depth + 4);
-                write(listq->name, 0);
-                out << "\n";
-                write("index = ", depth + 4);
+                write(listq->name + "\n", 0);
+                write("indices:\n", depth + 4);
                 for(int i = 0; i < listq->indices.size(); i++)
-                    write(listq->indices[i], 0),
-                    out << " ";
+                    write(listq->indices[i], depth + 8);
 
                 break;
             }
@@ -376,8 +369,7 @@ namespace haxy {
 
             case AstTagReturn: {
                 write("return: \n", depth);
-                write("value = ", depth + 4);
-                write(node.convert<_AstReturn>()->expr, 0);
+                write(node.convert<_AstReturn>()->expr, depth + 4);
                 break;
             }
 
@@ -474,8 +466,8 @@ namespace haxy {
 
             case AstTagOperation: {
                 auto op = node.convert<_AstOperation>();
-                write("operation: ", depth);
-                write(op->op + "\n", 0);
+                write("operation:\n", depth);
+                write(op->op + "\n", depth + 4);
                 write(op->left, depth + 4);
                 write(op->right, depth + 4);
                 break;                      
@@ -510,12 +502,9 @@ namespace haxy {
         }
     }
 
-    void AstWriter::write_tree(AstNode n) {
+    void AstPrinter::write_tree(AstNode n) {
         write(n, 0);
     }
-
-    /* begin AstWriter */
-
-#undef out
+    /* end AstGenerator */
 }
 
