@@ -1,8 +1,12 @@
-
 #include "byte.hpp"
     /* begin AstWriter */
 
 #define out (to_stdout ? std::cout : stream)
+
+#define new_node(name, type) type name = ptr::shared_ptr<_ ## type>();
+#define new_astvalue(name) AstValue name = ptr::shared_ptr<_AstValue>(); \
+                           name->tag = AstTagValue; \
+
    
 namespace haxy {
 
@@ -20,7 +24,7 @@ namespace haxy {
                 break;
 
             case ValueTypeString:
-                stream << "\"" << v->str << "\"";
+                stream << v->str;
                 break;
 
             default:
@@ -31,7 +35,7 @@ namespace haxy {
         out << " ";
     }
     void AstWriter::write(std::string str) {
-        out << str;
+        out << str << " ";
     }
 
 
@@ -206,8 +210,272 @@ namespace haxy {
 
     AstNode AstReader::read_tree() {
         std::string label;
+
+        return read();
     }
 
+
+
+    Value AstReader::read_value() {
+
+        Value v;
+
+        ValueType type;
+        int ttype;
+        stream >> ttype;
+        type = (ValueType)ttype;
+
+        switch(type) {
+            case ValueTypeNumber: {
+                long tmp;
+                stream >> tmp;
+                v = new_value(tmp);
+                break;
+            }
+            case ValueTypeBool: {
+                long tmp;
+                stream >> tmp;
+                v = new_bvalue(tmp);
+                break;
+            }
+            case ValueTypeDbl: {
+                double tmp;
+                stream >> tmp;
+                v = new_dvalue(tmp);
+                break;
+            }
+
+            case ValueTypeString: {
+                std::string tmp;
+                stream >> tmp;
+                v = new_value(tmp);
+                break;
+            }
+
+            default:
+                v = new_error(BadOp);
+                std::cerr << "Unexpected value given to AstReader!" << std::endl;
+                break;
+        }
+
+        return v;
+    }
+
+    AstNode AstReader::read() {
+        int ttag;
+        stream >> ttag;
+
+        AstTag tag = (AstTag)ttag;
+
+        switch(tag) {
+            case AstTagValue: {
+                new_node(node, AstValue);
+                node->tag = AstTagValue;
+                node->value = read_value();
+                return node;
+            }
+            case AstTagVariable: {
+                new_node(node, AstVariable);
+                node->tag = AstTagVariable;
+                stream >> node->name;
+                return node;
+            }
+
+            case AstTagList: {
+                new_node(node, AstList);
+                node->tag = AstTagList;
+
+                int sz;
+                stream >> sz;
+
+                while(sz --> 0) node->elems.push_back(read());
+
+                return node;
+            }
+
+            case AstTagListQ: {
+                new_node(node, AstListQ);
+                node->tag = AstTagListQ;
+
+                stream >> node->name;
+
+                int sz;
+                stream >> sz;
+
+                while(sz --> 0) node->indices.push_back(read());
+
+                return node;
+            }
+
+            case AstTagWhile: {
+                new_node(node, AstWhile);
+                node->tag = AstTagWhile;
+
+                node->condition = read();
+                node->action = read().convert<_AstBlock>();
+
+                return node;
+            }
+
+            case AstTagBlock: {
+                new_node(node, AstBlock);
+                node->tag = AstTagBlock;
+
+                int sz;
+                stream >> sz;
+                while(sz --> 0) node->children.push_back(read());
+
+                return node;
+            }
+
+            case AstTagReturn: {
+                new_node(node, AstReturn);
+                node->tag = AstTagReturn;
+                node->expr = read();
+                return node;
+            }
+
+            case AstTagFunctionDefinition: {
+                new_node(node, AstFunctionDefinition);
+                node->tag = AstTagFunctionDefinition;
+
+                stream >> node->name;
+
+                std::string tmp;
+                int sz;
+                stream >> sz;
+                while(sz --> 0) stream >> tmp, node->args.push_back(tmp);
+
+                node->action = read().convert<_AstBlock>();
+
+                return node;
+            }
+
+            case AstTagAssignment: {
+                new_node(node, AstAssignment);
+                node->tag = AstTagAssignment;
+                node->left_side = read();
+                node->right_side = read();
+
+                return node;
+            }
+
+            case AstTagVariableDeclaration: {
+                new_node(node, AstVariableDeclaration);
+                node->tag = AstTagVariableDeclaration;
+
+                int sz;
+                stream >> sz;
+                while(sz --> 0)
+                    node->children.push_back(read().convert<_AstDeclarableExpression>());
+
+                return node;
+            }
+
+            case AstTagFoldExpression: {
+                new_node(node, AstFoldExpr);
+                node->tag = AstTagFoldExpression;
+
+                stream >> node->op;
+
+                int sz;
+                stream >> sz;
+                while(sz --> 0) node->args.push_back(read());
+                
+                return node;
+            }
+
+            case AstTagFunctionCall: {
+                new_node(node, AstFunctionCall);
+                node->tag = AstTagFunctionCall;
+
+                stream >> node->name;
+
+                int sz;
+                stream >> sz;
+                while(sz --> 0) node->args.push_back(read());
+
+                return node;
+            }
+
+            case AstTagConditional: {
+                new_node(node, AstConditional);
+                node->tag = AstTagConditional;
+
+                int sz;
+                stream >> sz;
+                while(sz --> 0) {
+
+                    int ttype;
+                    stream >> ttype;
+
+                    new_node(child, AstIf);
+                    child->type = (IfType) ttype;
+
+                    switch(child->type) {
+                        case IfTypeIf:
+                        case IfTypeElif:
+                            child->expr = read();
+                            child->block = read().convert<_AstBlock>();
+
+                        case IfTypeElse: 
+                            child->block = read().convert<_AstBlock>();
+                    }
+
+                    node->children.push_back(child);
+                }
+
+                return node;
+            }
+
+            case AstTagOperation: {
+                new_node(node, AstOperation);
+                node->tag = AstTagOperation;
+
+                stream >> node->op;
+                node->left = read();
+                node->right = read();
+
+                return node;
+            }
+
+            case AstTagClass: {
+                new_node(node, AstClass);
+                node->tag = AstTagClass;
+
+                stream >> node->name;
+
+                int sz;
+                stream >> sz;
+                while(sz --> 0)
+                    node->vars.push_back(read().convert<_AstVariableDeclaration>());
+
+                stream >> sz;
+                while(sz --> 0)
+                    node->funcs.push_back(read().convert<_AstFunctionDefinition>());
+
+                return node;
+            }
+
+            case AstTagClassRef: {
+                new_node(node, AstClassReference);
+                node->tag = AstTagClassRef;
+
+                int sz;
+                stream >> sz;
+                while(sz --> 0) node->refs.push_back(read());
+
+                return node;
+            }
+
+            case AstTagExpr: {
+                new_node(node, AstValue);
+                node->tag = AstTagValue;
+                node->value = new_error(NoValue);
+                return node;
+            }
+        }
+    }
 }
 
 #undef out

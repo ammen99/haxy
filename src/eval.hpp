@@ -5,9 +5,6 @@
 #include <cstring>
 #include <vector>
 #include <functional>
-
-#include "sherwood_map/sherwood_map.hpp"
-
 #include "val.hpp"
 #include "ast.hpp"
 

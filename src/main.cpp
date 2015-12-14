@@ -20,6 +20,14 @@ std::string load_file(std::string path) {
 
 int main(int argc, char *argv[]) {
 
+    auto src = load_file(argv[1]);
+    haxy::AstReader r(src);
+    auto tree = r.read_tree();
+
+    haxy::AstPrinter printer;
+    printer.write_tree(tree);
+//    return 0;
+
     mpc_parser_t* num  = mpc_new("number");
     mpc_parser_t* dbl  = mpc_new("dbl");
     mpc_parser_t* bl   = mpc_new("bool");
@@ -61,9 +69,11 @@ int main(int argc, char *argv[]) {
 
     haxy::AstEvaluator eval;
     eval.init(cmd, norm);
-    
-    std::string src = load_file(argv[1]);
+//    
+//    std::string src = load_file(argv[2]);
 
+    eval.eval(tree);
+    return 0;
     mpc_result_t res;
     if(mpc_parse("input", src.c_str(), cmd, &res)) {
         //mpc_ast_print(ast(res.output));

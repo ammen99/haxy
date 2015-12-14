@@ -23,6 +23,9 @@ namespace haxy {
         std::string src;
         std::stringstream stream;
 
+        Value read_value();
+        AstNode read();
+
         public:
         AstReader(std::string s) : src(s) { stream.str(src); } 
         AstNode read_tree();
