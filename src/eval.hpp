@@ -30,8 +30,6 @@ class AstEvaluator {
         void print_trace();
     } scope_stack;
 
-    mpc_parser_t *parser, *expr_parser;
-
     void new_func(AstNode node);
     void create_constructor(AstNode node);
 
@@ -63,7 +61,7 @@ class AstEvaluator {
 
     public:
     void add_builtin_functions();
-    void init(mpc_parser_t *parser, mpc_parser_t *expr_parser);
+    void init();
 
     void eval_file(std::string name);
     Value eval(AstNode node);

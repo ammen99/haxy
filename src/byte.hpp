@@ -12,7 +12,7 @@ namespace haxy {
 
         public:
         AstWriter() :to_stdout(true) {}
-        AstWriter(std::string name) : to_stdout(false) { stream.open(name); }
+        AstWriter(std::string name) : to_stdout(false) { stream.open(name, std::ios::out); }
 
         void write_tree(AstNode root);
 

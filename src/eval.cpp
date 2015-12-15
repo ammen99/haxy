@@ -3,10 +3,7 @@
 #define donotcreatescope "________________________"
 
 namespace haxy {
-void AstEvaluator::init(mpc_parser_t *p, mpc_parser_t *e) {
-    this->parser = p;
-    this->expr_parser = e;
-
+void AstEvaluator::init() {
     scope_stack.push_scope("__global__");
     add_builtin_functions();
 }
@@ -96,6 +93,7 @@ void AstEvaluator::new_func(AstNode node) {
 
 
 void AstEvaluator::create_constructor(AstNode node) {
+    std::cout << "create con" << std::endl;
     auto cl = node.convert<_AstClass>();
 
     scope_stack.new_func(cl->name, Func(new _Func{0, 0, [=] (Args a) {
@@ -191,15 +189,15 @@ void AstEvaluator::add_builtin_functions() {
 
 
     // TODO: implement readln function
-    scope_stack.new_func("readln", Func(new _Func{1, MAXINT, [=] (Args a) {
-        for(int i = 0; i < a.size(); i++) {
-            std::string str;
-            std::getline(std::cin, str);
-
-            mpc_result_t res;
-
-            if(mpc_parse("input", str.c_str(), expr_parser, &res)) {
-                mpc_ast_print(ast(res.output)); 
+//    scope_stack.new_func("readln", Func(new _Func{1, MAXINT, [=] (Args a) {
+//        for(int i = 0; i < a.size(); i++) {
+//            std::string str;
+//            std::getline(std::cin, str);
+//
+//            mpc_result_t res;
+//
+//            if(mpc_parse("input", str.c_str(), expr_parser, &res)) {
+//                mpc_ast_print(ast(res.output)); 
 //                auto node = ast(res.output);
 //                Value v;
 //                if(node->tag == std::string("ident|regex"))
@@ -208,15 +206,15 @@ void AstEvaluator::add_builtin_functions() {
 //                    v = eval(node);
 //
 //                set_var(a[i]->str, v);
-            }
-            else {
-                mpc_err_print(res.error),
-                mpc_err_delete(res.error);
-            }
-                 
-        }
-        return new_error(NoValue);        
-    }, true}));
+//          }
+//            else {
+//                mpc_err_print(res.error),
+//                mpc_err_delete(res.error);
+//            }
+//                 
+//        }
+//        return new_error(NoValue);        
+//    }, true}));
 
     scope_stack.new_func("read", Func(new _Func{1, MAXINT, [=] (Args a) {
             for(int i = 0; i < a.size(); i++) {
@@ -458,7 +456,6 @@ Value AstEvaluator::eval_vardecl(AstVariableDeclaration node) {
 
 
 Value AstEvaluator::eval(AstNode node) {
-
     switch(node->tag) {
 
         case AstTagValue:
@@ -552,22 +549,8 @@ Value AstEvaluator::eval_block(AstBlock node, std::string new_scope, bool create
     return new_error(NoValue);
 }
 
+// TODO: implement eval_file(used for import) */
 void AstEvaluator::eval_file(std::string name) {
-    std::string src = load_file(name);
-
-    mpc_result_t res;
-
-    if(mpc_parse("input", src.c_str(), parser, &res)) {
-        mpc_ast_print(ast(res.output)); 
-
-        auto output = AstGenerator::parse_file(ast(res.output)).convert<_AstBlock>();
-
-        eval_block(output);
-    }
-    else {
-        mpc_err_print(res.error),
-        mpc_err_delete(res.error);
-    }
 }
 }
 /* end eval_xxx */
