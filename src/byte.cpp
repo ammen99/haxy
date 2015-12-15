@@ -214,8 +214,6 @@ namespace haxy {
         return read();
     }
 
-
-
     Value AstReader::read_value() {
 
         Value v;

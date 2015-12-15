@@ -47,9 +47,11 @@ struct _Func {
 
 using Func = ptr::shared_ptr<_Func>;
 
+#define map_type sherwood_map
+
 struct Scope {
-    std::unordered_map<std::string, Value> vars;
-    std::unordered_map<std::string, Func> funcs;
+    map_type<std::string, Value> vars;
+    map_type<std::string, Func> funcs;
 
     std::string name;
     Scope *parent_scope = nullptr;

@@ -17,7 +17,7 @@ file(GLOB SOURCES "src/*.cpp" "src/mpc/mpc.c" "src/sherwood_map/sherwood_map.cpp
 add_executable(haxy ${SOURCES})
 
 # Libraries
-target_compile_options(haxy PRIVATE)
+target_compile_options(haxy PRIVATE -O2)
 target_link_libraries(haxy readline m)
 target_link_libraries(haxy)
 
