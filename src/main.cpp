@@ -8,7 +8,7 @@
 #include "eval.hpp"
 #include "byte.hpp"
 
-#define LEXER_FILE "/home/ilex/haxy/src/num.lex"
+#define LEXER_FILE "/usr/local/share/haxy/lexer/num.lex"
 
 #define src_name(x) x + ".hx"
 #define byte_name(x) "._" + x + ".hc"
@@ -60,7 +60,7 @@ struct CompilerVars {
         cmd  = mpc_new("lispy"); ret  = mpc_new("return"); lq   = mpc_new("listq");
         clss = mpc_new("class"); memb = mpc_new("member");
 
-        auto lex = load_file("/home/ilex/haxy/src/num.lex");
+        auto lex = load_file(LEXER_FILE);
         mpca_lang(MPCA_LANG_DEFAULT, lex.c_str(), clss, lq, ret, wh, assi,
                 felif, elif, elsee, cond, iff, norm,
                 comp, gcomp, num, bl, op, body, str, id, 

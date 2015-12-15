@@ -23,3 +23,4 @@ target_link_libraries(haxy)
 
 # Installation
 install(TARGETS haxy DESTINATION bin)
+install(DIRECTORY src/lexer DESTINATION share/haxy)
