@@ -42,37 +42,47 @@ time_t get_last_modified_time(std::string file) {
 struct CompilerVars {
     bool done_init = false;
 
-    mpc_parser_t *num, *dbl, *bl, *str, *op, *id, *noarg, *arg  , *args , *func ,
-                 *expr, *var  , *lst, *st   ,*fd   ,*top, *norm , *body ,
-                 *comp, *gcomp, *iff, *elif ,*felif,*wh   , *elsee, *cond ,
-                 *assi, *cmd  , *ret, *lq   ,*clss ,*memb, *memtype;
+    mpc_parser_t *num, *dbl, *bl, *str,
+                 *id, *lst, *lq, *value,
+                 *op1, *op2, *op3, *op4,
+                 *comp1, *comp2, *comp3, *comp4,
+                 *comp, *gcomp, *expr,
+                 *noarg, *arg  , *args , *func, *fundef,
+                 *var, *assign,
+                 *_if, *elif, *_else, *cond, *_while,
+                 *ret, *state, *body,
+                 *_class, *memtype, *member,
+                 *toplvl, *hax;
 
     void init() {
-        num  = mpc_new("number"); dbl  = mpc_new("dbl"); bl   = mpc_new("bool");
-        str  = mpc_new("str"); op   = mpc_new("operator"); id   = mpc_new("ident");
-        noarg= mpc_new("noarg"); arg  = mpc_new("arg"); args = mpc_new("args");
-        func = mpc_new("func"); expr = mpc_new("expr"); var  = mpc_new("var");
-        lst  = mpc_new("list"); st   = mpc_new("state"); fd   = mpc_new("fundef");
-        top  = mpc_new("toplevel"); norm = mpc_new("value"); body = mpc_new("body");
-        comp = mpc_new("comp"); gcomp= mpc_new("gcomp"); iff  = mpc_new("if");
-        elif = mpc_new("elif"); felif= mpc_new("felif"); wh   = mpc_new("while");
-        elsee= mpc_new("else"); cond = mpc_new("cond"); assi = mpc_new("assign");
-        cmd  = mpc_new("lispy"); ret  = mpc_new("return"); lq   = mpc_new("listq");
-        clss = mpc_new("class"); memb = mpc_new("member"); memtype = mpc_new("memtype");
+        num    = mpc_new("number"); dbl    = mpc_new("dbl");    bl      = mpc_new("bool"); 
+        str    = mpc_new("str");    op1    = mpc_new("op1");    op2     = mpc_new("op2");
+        op3    = mpc_new("op3");    op4    = mpc_new("op4");    comp1   = mpc_new("comp1");
+        comp2  = mpc_new("comp2");  comp3  = mpc_new("comp3");  comp4   = mpc_new("comp4");
+        id     = mpc_new("ident");  noarg  = mpc_new("noarg");  arg     = mpc_new("arg");
+        args   = mpc_new("args");   ret    = mpc_new("return"); lq      = mpc_new("listq"); 
+        func   = mpc_new("func");   expr   = mpc_new("expr");   var     = mpc_new("var");
+        lst    = mpc_new("list");   state  = mpc_new("state");  fundef  = mpc_new("fundef");
+        toplvl = mpc_new("toplvl"); value  = mpc_new("value");  body    = mpc_new("body");
+        comp   = mpc_new("comp");   gcomp  = mpc_new("gcomp");  _if     = mpc_new("if");
+        elif   = mpc_new("elif");   _while = mpc_new("while");  _else   = mpc_new("else");
+        cond   = mpc_new("cond");   assign = mpc_new("assign"); hax     = mpc_new("haxy");
+        _class = mpc_new("class");  member = mpc_new("member"); memtype = mpc_new("memtype");
 
         auto lex = load_file(LEXER_FILE);
-        mpca_lang(MPCA_LANG_DEFAULT, lex.c_str(), clss, lq, ret, wh, assi,
-                felif, elif, elsee, cond, iff, norm,
-                comp, gcomp, num, bl, op, body, str, id, 
-                arg, args, noarg, func, memtype,
-                expr, st, fd, var, lst, top, dbl, memb, cmd);
+        mpca_lang(MPCA_LANG_DEFAULT, lex.c_str(), _class, lq, ret, _while, assign,
+                elif, _else, cond, _if, value, comp, gcomp, num, bl,
+                op1, op2, op3, op4, comp1, comp2, comp3, comp4, comp,
+                body, str, id, arg, args, noarg, func, memtype,
+                expr, state, fundef, var, lst, toplvl, dbl, member, hax);
     }
 
     void fini() {
-        mpc_cleanup(30, elsee, elif, noarg, cond, num, lq, str,
-                wh, op, id, assi, felif, arg, args, bl, func, norm, body,
-                comp, gcomp, expr, var, lst, st, dbl, clss, memb, 
-                memtype, ret, fd, iff, top, cmd);
+        mpc_cleanup(39, _else, elif, noarg, cond, num, lq, str,
+                _while, op1, op2, op3, op4, comp1, comp2, comp3, comp4, id,
+                assign, arg, args, bl, func, value, body,
+                comp, gcomp, expr, var, lst, state, dbl, _class, member, 
+                memtype, ret, fundef, _if, toplvl, hax);
     }
 
 } mpc_machine;
@@ -94,7 +104,7 @@ void compile(std::string name, bool debug = false) {
     std::string src = load_file(src_name(name));
 
     mpc_result_t res;
-    if(mpc_parse("input", src.c_str(), mpc_machine.cmd, &res)) {
+    if(mpc_parse("input", src.c_str(), mpc_machine.hax, &res)) {
 
         if(debug) mpc_ast_print(ast(res.output));
 
