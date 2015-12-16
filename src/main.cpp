@@ -45,7 +45,7 @@ struct CompilerVars {
     mpc_parser_t *num, *dbl, *bl, *str, *op, *id, *noarg, *arg  , *args , *func ,
                  *expr, *var  , *lst, *st   ,*fd   ,*top, *norm , *body ,
                  *comp, *gcomp, *iff, *elif ,*felif,*wh   , *elsee, *cond ,
-                 *assi, *cmd  , *ret, *lq   ,*clss ,*memb;
+                 *assi, *cmd  , *ret, *lq   ,*clss ,*memb, *memtype;
 
     void init() {
         num  = mpc_new("number"); dbl  = mpc_new("dbl"); bl   = mpc_new("bool");
@@ -58,20 +58,21 @@ struct CompilerVars {
         elif = mpc_new("elif"); felif= mpc_new("felif"); wh   = mpc_new("while");
         elsee= mpc_new("else"); cond = mpc_new("cond"); assi = mpc_new("assign");
         cmd  = mpc_new("lispy"); ret  = mpc_new("return"); lq   = mpc_new("listq");
-        clss = mpc_new("class"); memb = mpc_new("member");
+        clss = mpc_new("class"); memb = mpc_new("member"); memtype = mpc_new("memtype");
 
         auto lex = load_file(LEXER_FILE);
         mpca_lang(MPCA_LANG_DEFAULT, lex.c_str(), clss, lq, ret, wh, assi,
                 felif, elif, elsee, cond, iff, norm,
                 comp, gcomp, num, bl, op, body, str, id, 
-                arg, args, noarg, func,
+                arg, args, noarg, func, memtype,
                 expr, st, fd, var, lst, top, dbl, memb, cmd);
     }
 
     void fini() {
         mpc_cleanup(30, elsee, elif, noarg, cond, num, lq, str,
                 wh, op, id, assi, felif, arg, args, bl, func, norm, body,
-                comp, gcomp, expr, var, lst, st, dbl, clss, memb, ret, fd, iff, top, cmd);
+                comp, gcomp, expr, var, lst, st, dbl, clss, memb, 
+                memtype, ret, fd, iff, top, cmd);
     }
 
 } mpc_machine;
@@ -186,5 +187,6 @@ int main(int argc, char *argv[]) {
 
     if(mpc_machine.done_init)
         mpc_machine.fini();
+
     return 0;
 }

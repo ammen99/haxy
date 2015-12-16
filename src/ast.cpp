@@ -147,8 +147,8 @@ namespace haxy {
             new_node(node, AstClassReference);
             node->tag = AstTagClassRef;
 
-            for(int i = 1; i < root->children_num; i += 2)
-                node->refs.push_back(generate(root->children[i])); 
+            for(int i = 0; i < root->children_num; i += 2)
+                node->refs.insert(node->refs.begin(), generate(root->children[i])); 
 
             return node;
         }
