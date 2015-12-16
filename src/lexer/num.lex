@@ -1,13 +1,20 @@
 number   : /-?[0-9]+/ ;
 dbl      : /-?[0-9]+[.][0-9]+/ ;
 bool     : "true" | "false" ;
-operator : '+' | '-' | "**" | '*' | '/' | '%' | "&&" | "||" | "==" | "<=" | ">=" | "!=" | '>' | '<' ;
+op1      : "&&" | "||" | "**" ;
+op2      : "==" | "<=" | ">=" | "<" | ">" | "!=";
+op3      : "*" | "/" | "%" ;
+op4      : '+' | '-' ;
 ident    : /[a-zA-Z_][a-zA-Z0-9_]*/ ;
 noarg    : "" ;
 args     : (<expr> ',')* <expr> | <noarg> ;
 func     : <ident> '(' <args> ')' ;
 value    : <member> | <gcomp> | <listq> | <str> | <func> | <dbl> | <number> | <bool> | <ident> | <list> | '(' <operator> <expr>+ ')' ;
-comp     : <value> <operator> <expr>;
+
+comp1    : (<comp2> | <comp3> | <comp4> | <value>) <op1> (<comp2> | <comp3> | <comp4> | <value>)  ;
+comp     : <expr> <op1> <expr> | <expr> <op2> <expr> | <expr> <op3> <expr> | <expr> <op4> <expr> ;
+
+comp     : <comp1> | <comp2> | <comp3> | <comp4> ;
 gcomp    : '(' <comp> ')' ;
 expr     : <comp> | <value> ;
 assign   : (<listq> | <ident> | <member>) '=' <expr> ;
@@ -25,7 +32,7 @@ fundef   : "def" <func> <body> ;
 class    : "class" <ident> '{' (<var> | <fundef>)* '}' ;
 memtype  : <func> | <listq> | <ident> ;
 member   : <memtype> ('@' <memtype>)+ ;
-toplevel : <class> | <fundef> | <state> | <comp> | <list> | <expr> ;
-lispy    : /^/ <toplevel>* /$/ ;
+toplvl : <class> | <fundef> | <state> | <comp> | <list> | <expr> ;
+lispy    : /^/ <toplvl>* /$/ ;
 listq    : <ident> ('[' <expr> ']')+ ;
 return   : "return" <expr> ';' ;
