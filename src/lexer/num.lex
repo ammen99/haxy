@@ -14,10 +14,10 @@ op3    : '+' | '-' ;
 op2    : "==" | "<=" | ">=" | "!=" | '>' | '<' ;
 op1    :  "&&" | "||" | "**" ;
 
-comp1  : (<comp2> | <comp3> | <comp4> | <value>) <op1> (<comp1> | <comp2> | <comp3> | <comp4> | <value>);
-comp2  : (<comp3> | <comp4> | <value>)           <op2> (<comp2> | <comp3> | <comp4> | <value>);
-comp3  : (<comp4> | <value>)                     <op3> (<comp3> | <comp4> | <value>);
-comp4  : (<value>)                               <op4> (<comp4> | <value>);
+comp1  : (<comp2> | <comp3> | <comp4> | <value>) (<op1> (<comp2> | <comp3> | <comp4> | <value>))+;
+comp2  : (<comp3> | <comp4> | <value>)           (<op2> (<comp3> | <comp4> | <value>))+;
+comp3  : (<comp4> | <value>)                     (<op3> (<comp4> | <value>))+;
+comp4  : (<value>)                               (<op4> (<value>))+;
 
 comp   : <comp1> | <comp2> | <comp3> | <comp4>;
 gcomp  : '(' <comp> ')' ;

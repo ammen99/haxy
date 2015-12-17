@@ -315,7 +315,7 @@ Value AstEvaluator::call_function(Func fn, AstFunctionCall node) {
             args.push_back(new_value(x.convert<_AstVariable>()->name));
     else
         for(auto x : node->args)
-            args.push_back(eval(x));
+            args.push_back(clone(eval(x)));
 
     if(fn->min_arg <= args.size() && args.size() <= fn->max_arg)
         return fn->call(args);
@@ -516,16 +516,12 @@ Value AstEvaluator::eval(AstNode node) {
             return scope_stack.get_var(node.convert<_AstVariable>()->name);
 
         case AstTagOperation: {
-            auto op = node.convert<_AstOperation>();
-            return doit(eval(op->left), op->op, eval(op->right));
-        }
+            auto expr = node.convert<_AstOperation>();
 
-        case AstTagFoldExpression: {
-            auto expr = node.convert<_AstFoldExpr>();
             Value x = eval(expr->args[0]);
 
             for(int i = 1; i < expr->args.size(); i++)
-                x = doit(x, expr->op, eval(expr->args[i])); 
+                x = doit(x, expr->ops[i - 1], eval(expr->args[i])); 
 
             return x;
         }

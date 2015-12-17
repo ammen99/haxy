@@ -110,6 +110,7 @@ Value operator >  (const Value &a, const Value &b);
 Value operator <  (const Value &a, const Value &b);
 
 Value times(const Value &a, const Value &b);
+Value clone(const Value &v);
 
 void raise_error(Error e);
 

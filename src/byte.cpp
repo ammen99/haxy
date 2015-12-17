@@ -117,13 +117,16 @@ namespace haxy {
                 break;
             }
 
-            case AstTagFoldExpression: {
-                auto expr = node.convert<_AstFoldExpr>();
+            case AstTagOperation: {
+                auto expr = node.convert<_AstOperation>();
 
-                out << expr->op << " " << expr->args.size() << " ";
+                out << expr->args.size() << " ";
 
-                for(int i = 0; i < expr->args.size(); i++)
+                for(int i = 0; i < expr->args.size(); i++) {
                     write(expr->args[i]);
+                    if(i != expr->args.size() - 1)
+                        write(expr->ops[i]);
+                }
                 
                 break;
             }
@@ -159,14 +162,6 @@ namespace haxy {
                     }
                 }
                 break;
-            }
-
-            case AstTagOperation: {
-                auto op = node.convert<_AstOperation>();
-                out << op->op << " ";
-                write(op->left);
-                write(op->right);
-                break;                      
             }
 
             case AstTagClass: {
@@ -262,6 +257,14 @@ namespace haxy {
     AstNode AstReader::read() {
         int ttag;
         stream >> ttag;
+
+        struct Debug {
+            ~Debug() {
+                std::cout << " ***** " << std::endl;
+            }
+        } debug;
+
+        std::cout << "read " << ttag << std::endl;
 
         AstTag tag = (AstTag)ttag;
 
@@ -370,15 +373,19 @@ namespace haxy {
                 return node;
             }
 
-            case AstTagFoldExpression: {
-                new_node(node, AstFoldExpr);
-                node->tag = AstTagFoldExpression;
+            case AstTagOperation: {
+                new_node(node, AstOperation);
+                node->tag = AstTagOperation;
 
-                stream >> node->op;
+                std::string op;
 
                 int sz;
                 stream >> sz;
-                while(sz --> 0) node->args.push_back(read());
+                while(sz --> 0) {
+                    node->args.push_back(read());
+                    if(sz > 0)
+                        stream >> op, node->ops.push_back(op);
+                }
                 
                 return node;
             }
@@ -415,24 +422,15 @@ namespace haxy {
                         case IfTypeElif:
                             child->expr = read();
                             child->block = read().convert<_AstBlock>();
+                            break;
 
                         case IfTypeElse: 
                             child->block = read().convert<_AstBlock>();
+                            break;
                     }
 
                     node->children.push_back(child);
                 }
-
-                return node;
-            }
-
-            case AstTagOperation: {
-                new_node(node, AstOperation);
-                node->tag = AstTagOperation;
-
-                stream >> node->op;
-                node->left = read();
-                node->right = read();
 
                 return node;
             }

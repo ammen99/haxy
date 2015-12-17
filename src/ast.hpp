@@ -33,12 +33,11 @@ namespace haxy {
         AstTagFunctionDefinition  = 9,
         AstTagAssignment          = 10,
         AstTagVariableDeclaration = 11,
-        AstTagFoldExpression      = 13,
-        AstTagFunctionCall        = 14,
-        AstTagConditional         = 15,
-        AstTagOperation           = 16,
-        AstTagClass               = 17,
-        AstTagClassRef            = 18,
+        AstTagFunctionCall        = 12,
+        AstTagConditional         = 13,
+        AstTagOperation           = 14,
+        AstTagClass               = 15,
+        AstTagClassRef            = 16,
     };
 
     struct _AstNode {
@@ -60,16 +59,10 @@ namespace haxy {
     decl_shared_ptr(AstValue);
 
     struct _AstOperation : _AstExpr {
-        std::string op;
-        AstNode left, right; 
+        std::vector<AstNode> args;
+        std::vector<std::string> ops;
     };
     decl_shared_ptr(AstOperation);
-
-    struct _AstFoldExpr : _AstExpr {
-        std::string op; 
-        std::vector<AstNode> args;
-    };
-    decl_shared_ptr(AstFoldExpr);
 
     struct _AstFunctionCall : _AstExpr {
         std::string name;

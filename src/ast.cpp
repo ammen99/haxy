@@ -83,7 +83,6 @@ namespace haxy {
             if_node->block = generate_block(root->children[2]);
 
             node->children.push_back(if_node);
-
             return node;
         }
 
@@ -104,12 +103,12 @@ namespace haxy {
             return generate_comp(root);
 
         else if(std::strstr(root->tag, "expr")) {
-            new_node(node, AstFoldExpr);
-            node->tag = AstTagFoldExpression;
-            node->op = root->children[1]->contents;
+            new_node(node, AstOperation);
+            node->tag = AstTagOperation;
 
             for(int i = 2; i < root->children_num - 1; i++) {
                 node->args.push_back((generate(root->children[i]))); 
+                node->ops.push_back(root->children[1]->contents);
             }
 
             return node;
@@ -174,10 +173,11 @@ namespace haxy {
         new_node(node, AstOperation);
         node->tag = AstTagOperation;
 
-        node->left = generate(root->children[0]);
-        node->right = generate(root->children[2]);
-        
-        node->op = root->children[1]->contents;
+        for(int i = 0; i < root->children_num; i += 2) {
+            node->args.push_back(generate(root->children[i])); 
+            if(i != root->children_num - 1)
+                node->ops.push_back(root->children[i + 1]->contents);
+        }
 
         return node;
     }
@@ -414,17 +414,15 @@ namespace haxy {
                 break;
             }
 
-            case AstTagFoldExpression: {
-                write("foldexpr:\n", depth);                           
-                write("op = ", depth + 4);
+            case AstTagOperation: {
+                write("operation:\n", depth);                           
+                auto expr = node.convert<_AstOperation>();
 
-                auto expr = node.convert<_AstFoldExpr>();
-
-                write(expr->op, 0);
-                out << "\n";
-
-                for(int i = 0; i < expr->args.size(); i++)
+                for(int i = 0; i < expr->args.size(); i++) {
                     write(expr->args[i], depth + 4);
+                    if(i != expr->args.size() - 1)
+                        write(expr->ops[i] + "\n", depth + 4);
+                }
                 
                 break;
             }
@@ -462,15 +460,6 @@ namespace haxy {
                 }
                 out << "\n";
                 break;
-            }
-
-            case AstTagOperation: {
-                auto op = node.convert<_AstOperation>();
-                write("operation:\n", depth);
-                write(op->op + "\n", depth + 4);
-                write(op->left, depth + 4);
-                write(op->right, depth + 4);
-                break;                      
             }
 
             case AstTagClass: {

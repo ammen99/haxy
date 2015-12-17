@@ -15,7 +15,7 @@ syn match   haxyNumber   "-\d\+.\d\+"
 syn region  haxyString   start='"' end='"' contained
 
 syn match   haxyDot         "\."
-syn match   haxyReference   "@\w\+"
+syn match   haxyReference   "@"
 
 hi link haxyKeyword Keyword
 hi link haxyFunction Function

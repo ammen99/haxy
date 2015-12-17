@@ -487,3 +487,7 @@ bool _Value::to_bool() {
             return false;
     }
 }
+
+Value clone(const Value& v) {
+    return ptr::shared_ptr<_Value>(new _Value(*v));
+}
