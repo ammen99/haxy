@@ -15,6 +15,7 @@ namespace haxy {
         ScopeTypePrimary    = 1,
         ScopeTypeDerived    = 2,
         ScopeTypeNonderived = 3
+    };
 
 
 class AstEvaluator { 

@@ -4,14 +4,14 @@
 
 namespace haxy {
 void AstEvaluator::init() {
-    scope_stack.push_scope("__global__", true);
+    scope_stack.push_scope("__global__", ScopeTypePrimary);
     add_builtin_functions();
 }
 
 /* definitions for Scope */
 
 void AstEvaluator::ScopeStack::push_scope(std::string name, ScopeType type) {
-    std::cout << "push scope " << name << " " << primary << std::endl;
+    std::cout << "push scope " << name << " " << type << std::endl;
     CallScope new_scope;
     new_scope.scope.name = name;
 
@@ -19,30 +19,38 @@ void AstEvaluator::ScopeStack::push_scope(std::string name, ScopeType type) {
         case ScopeTypePrimary:
             if(!last_primary.empty())
                 new_scope.prev_jump = last_primary.top() - stack.size();
-    }
-    if(primary) {
-        if(!last_primary.empty())
-            new_scope.prev_jump = last_primary.top() - stack.size();
-        std::cout << new_scope.prev_jump << std::endl;;
+            last_primary.push(stack.size());
+            break;
 
-        last_primary.push(stack.size());
+        case ScopeTypeNonderived:
+            new_scope.prev_jump = last_primary.top() - stack.size();
+            break;
+
+        default:
+            break;
     }
 
     stack.push_back(new_scope);
 }
 
-void AstEvaluator::ScopeStack::push_scope(Scope s, bool primary) {
-    std::cout << "push scope " << s.name << " " << primary << std::endl;
+void AstEvaluator::ScopeStack::push_scope(Scope s, ScopeType type) {
     CallScope new_scope;
     new_scope.scope = s;
 
-    if(primary) {
-        if(!last_primary.empty())
-            new_scope.prev_jump = last_primary.top() - stack.size();
+    switch(type) {
+        case ScopeTypePrimary:
+            if(!last_primary.empty())
+                new_scope.prev_jump = last_primary.top() - stack.size();
+            last_primary.push(stack.size());
+            break;
 
-        std::cout << new_scope.prev_jump << std::endl;
-        last_primary.push(stack.size());
-    }
+        case ScopeTypeNonderived:
+            new_scope.prev_jump = last_primary.top() - stack.size();
+            break;
+
+        default:
+            break;
+    }   
 
     stack.push_back(new_scope);
 }
@@ -91,7 +99,7 @@ Value AstEvaluator::ScopeStack::get_var(std::string name) {
 
 void AstEvaluator::ScopeStack::new_func(std::string name, Func f) {
     stack[stack.size() - 1].scope.funcs[name] = Func(new _Func{f->min_arg, f->max_arg, [=] (Args a) {
-        push_scope(name + "()", false); 
+        push_scope(name + "()", ScopeTypeNonderived); 
         Value v = f->call(a);
         pop_scope();
         return v;
@@ -133,7 +141,7 @@ void AstEvaluator::create_constructor(AstNode node) {
                 Value v;
                 v->type = ValueTypeScope;
 
-                scope_stack.push_scope(cl->name, false);
+                scope_stack.push_scope(cl->name, ScopeTypeNonderived);
 
                 for(auto fun : cl->funcs)
                     new_func(fun);
@@ -415,7 +423,7 @@ Value AstEvaluator::eval_classref(AstClassReference clref) {
 
             case AstTagFunctionCall: {
 
-                scope_stack.push_scope(sc, true); 
+                scope_stack.push_scope(sc, ScopeTypePrimary); 
 
                 arr = call_function(clref->refs[i]);
 
@@ -568,7 +576,7 @@ Value AstEvaluator::eval(AstNode node) {
 }
 
 Value AstEvaluator::eval_block(AstBlock node, std::string new_scope, bool create_scope) {
-    if(create_scope) scope_stack.push_scope(new_scope, false);
+    if(create_scope) scope_stack.push_scope(new_scope, ScopeTypeDerived);
 
     for(int i = 0; i < node->children.size(); i++) {
         Value v = eval(node->children[i]);
