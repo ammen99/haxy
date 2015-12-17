@@ -5,15 +5,29 @@
 #include <cstring>
 #include <vector>
 #include <functional>
+#include <stack>
 #include "val.hpp"
 #include "ast.hpp"
 
 namespace haxy {
 
+    enum ScopeType {
+        ScopeTypePrimary    = 1,
+        ScopeTypeDerived    = 2,
+        ScopeTypeNonderived = 3
+
+
 class AstEvaluator { 
     struct ScopeStack {
+        struct CallScope {
+            Scope scope;
+            int prev_jump = -1;
+        };
+
         private:
-        std::vector<Scope> stack;
+        std::vector<CallScope> stack;
+        std::stack<int> last_primary;
+        std::stack<int> last_nonderived;
 
         public:
         Value get_var(std::string name);
@@ -22,8 +36,8 @@ class AstEvaluator {
         Func get_func(std::string name);
         void new_func(std::string name, Func f);
     
-        void  push_scope(Scope s); /* push an existing scope */
-        void  push_scope(std::string name); /* create and push a scope */
+        void  push_scope(Scope s, ScopeType type); /* push an existing scope */
+        void  push_scope(std::string name, ScopeType type); /* create and push a scope */
         void  pop_scope(); /* remove scope */
         Scope get_top_scope(); /* returns the last scope */
 

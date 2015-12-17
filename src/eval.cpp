@@ -4,63 +4,94 @@
 
 namespace haxy {
 void AstEvaluator::init() {
-    scope_stack.push_scope("__global__");
+    scope_stack.push_scope("__global__", true);
     add_builtin_functions();
 }
 
 /* definitions for Scope */
 
-void AstEvaluator::ScopeStack::push_scope(std::string name) {
-    Scope new_scope;
-    new_scope.name = name;
+void AstEvaluator::ScopeStack::push_scope(std::string name, ScopeType type) {
+    std::cout << "push scope " << name << " " << primary << std::endl;
+    CallScope new_scope;
+    new_scope.scope.name = name;
+
+    switch(type) {
+        case ScopeTypePrimary:
+            if(!last_primary.empty())
+                new_scope.prev_jump = last_primary.top() - stack.size();
+    }
+    if(primary) {
+        if(!last_primary.empty())
+            new_scope.prev_jump = last_primary.top() - stack.size();
+        std::cout << new_scope.prev_jump << std::endl;;
+
+        last_primary.push(stack.size());
+    }
+
     stack.push_back(new_scope);
 }
 
-void AstEvaluator::ScopeStack::push_scope(Scope s) {
-    stack.push_back(s);
+void AstEvaluator::ScopeStack::push_scope(Scope s, bool primary) {
+    std::cout << "push scope " << s.name << " " << primary << std::endl;
+    CallScope new_scope;
+    new_scope.scope = s;
+
+    if(primary) {
+        if(!last_primary.empty())
+            new_scope.prev_jump = last_primary.top() - stack.size();
+
+        std::cout << new_scope.prev_jump << std::endl;
+        last_primary.push(stack.size());
+    }
+
+    stack.push_back(new_scope);
 }
 
 void AstEvaluator::ScopeStack::pop_scope() {
     if(stack.empty()) return;
+    if(stack.size() - 1 == (last_primary.empty() ? -1 : last_primary.top()))
+        last_primary.pop();
     stack.pop_back();
 }
 
 Scope AstEvaluator::ScopeStack::get_top_scope() {
     if(stack.empty()) return Scope();
 
-    return stack[stack.size() - 1];
+    return stack[stack.size() - 1].scope;
 }
 
 void AstEvaluator::ScopeStack::print_trace() {
     std::string res;
 
     for(int i = 0; i < stack.size(); i++) {
-        for(int j = 0; j < i * 4; j++) std::cout << " "; 
+        for(int j = 0; j < i * 2; j++) std::cout << " "; 
 
-        std::cout << stack[i].name << std::endl;;
+        std::cout << stack[i].prev_jump << " " << stack[i].scope.name << std::endl;;
     }
 }
 
 void AstEvaluator::ScopeStack::new_var(std::string name, Value val) {
-    stack[stack.size() - 1].vars[name] = val;
+    stack[stack.size() - 1].scope.vars[name] = val;
 }
 
 Value unknownsym = new_error(UnknownSym);
 Value badvalue   = new_error(BadValue);
 
 Value AstEvaluator::ScopeStack::get_var(std::string name) {
+    int i = stack.size() - 1;
 
-    for(int i = stack.size() - 1; i >= 0; i--) {
-        auto it = stack[i].vars.find(name);
-        if(it != stack[i].vars.end()) return it->second;
+    while( i >= 0 ) {
+        auto it = stack[i].scope.vars.find(name);
+        if(it != stack[i].scope.vars.end()) return it->second;
+        i += stack[i].prev_jump;
     }
 
     return unknownsym;
 }
 
 void AstEvaluator::ScopeStack::new_func(std::string name, Func f) {
-    stack[stack.size() - 1].funcs[name] = Func(new _Func{f->min_arg, f->max_arg, [=] (Args a) {
-        push_scope(name + "()"); 
+    stack[stack.size() - 1].scope.funcs[name] = Func(new _Func{f->min_arg, f->max_arg, [=] (Args a) {
+        push_scope(name + "()", false); 
         Value v = f->call(a);
         pop_scope();
         return v;
@@ -69,11 +100,13 @@ void AstEvaluator::ScopeStack::new_func(std::string name, Func f) {
 
 Func AstEvaluator::ScopeStack::get_func(std::string name) {
 
-    for(int i = stack.size() - 1; i >= 0; i--) {
-        auto it = stack[i].funcs.find(name);
-        if(it != stack[i].funcs.end()) return it->second;
-    }
+    int i = stack.size() - 1;
 
+    while( i >= 0 ) {
+        auto it = stack[i].scope.funcs.find(name);
+        if(it != stack[i].scope.funcs.end()) return it->second;
+        i += stack[i].prev_jump;
+    }
     return Func(new _Func{0, 0, [] (Args a) {return new_error(UnknownSym);}});
 }
 
@@ -100,7 +133,7 @@ void AstEvaluator::create_constructor(AstNode node) {
                 Value v;
                 v->type = ValueTypeScope;
 
-                scope_stack.push_scope(cl->name);
+                scope_stack.push_scope(cl->name, false);
 
                 for(auto fun : cl->funcs)
                     new_func(fun);
@@ -382,7 +415,7 @@ Value AstEvaluator::eval_classref(AstClassReference clref) {
 
             case AstTagFunctionCall: {
 
-                scope_stack.push_scope(sc); 
+                scope_stack.push_scope(sc, true); 
 
                 arr = call_function(clref->refs[i]);
 
@@ -535,7 +568,7 @@ Value AstEvaluator::eval(AstNode node) {
 }
 
 Value AstEvaluator::eval_block(AstBlock node, std::string new_scope, bool create_scope) {
-    if(create_scope) scope_stack.push_scope(new_scope);
+    if(create_scope) scope_stack.push_scope(new_scope, false);
 
     for(int i = 0; i < node->children.size(); i++) {
         Value v = eval(node->children[i]);
