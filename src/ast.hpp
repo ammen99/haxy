@@ -107,9 +107,18 @@ namespace haxy {
     };
     decl_shared_ptr(AstReturn);
 
+    struct _AstParam : _AstNode {
+        bool is_ref;
+        bool is_req;
+        AstNode param;
+    };
+
+    decl_shared_ptr(AstParam);
+
     struct _AstFunctionDefinition : _AstNode {
         std::string name;
-        std::vector<std::string> args;
+        bool is_ref;
+        std::vector<AstParam> args;
         AstBlock action;
     };
     decl_shared_ptr(AstFunctionDefinition);

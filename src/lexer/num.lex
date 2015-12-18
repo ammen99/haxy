@@ -26,7 +26,8 @@ expr   : <comp> | <value> ;
 noarg  : "" ;
 args   : (<expr> ',')* <expr> | <noarg> ;
 func   : <ident> '(' <args> ')' ;
-fundef : "def" <func> <body> ;
+param  : '$'? (<assign> | <ident>) ;
+fundef : "def" '$'? <ident> '(' ( <param> (',' <param>)* )* ')' <body> ;
 
 assign : (<listq> | <ident> | <member>) '=' <expr> ;
 var    : "var" (<assign> | <ident>) (',' (<assign> | <ident>))* ';' ;

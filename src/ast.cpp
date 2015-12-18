@@ -276,7 +276,32 @@ namespace haxy {
     AstFunctionDefinition AstGenerator::generate_func_def(AstNodeT root) {
         new_node(node, AstFunctionDefinition);
         node->tag = AstTagFunctionDefinition;
-        node->name = root->children[1]->children[0]->contents;
+
+        int i = 0;
+
+        if(std::strstr(root->children[1]->contents, "char")
+            node->is_ref = true, node->name = root->children[2]->contents, i = 3;
+        else
+            node->name = root->children[1]->contents, i = 2;
+
+        for(i = i + 1; i < root->children_num - 1; i += 2) {
+            new_node(child, AstParam);
+
+            child->is_ref = false;
+            child->is_req = true;
+            if(root->children[i]->children_num == 0) {
+
+                new_node(var, AstVariable);
+                var->tag = AstTagVariable;
+                var->name = root->children[i]->contents;
+
+                child->param = var;
+            }
+
+            else {
+                    
+            }
+        }
 
         auto args_root = root->children[1]->children[2];
         if(std::strstr(args_root->tag, "noarg")) {}
@@ -285,7 +310,7 @@ namespace haxy {
             for(int i = 0; i < args_root->children_num; i += 2)
                 node->args.push_back(args_root->children[i]->contents);
 
-        node->action = generate_block(root->children[2]);
+        node->action = generate_block(root->children[root->children_num - 1]);
         return node;
     }
 
